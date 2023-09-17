@@ -36,24 +36,9 @@ func NewServer() (*Server, error) {
 }
 
 func (s *Server) SetupRouter() error {
-	log.Info().Msg("setting up router...")
+	log.Info().Msg("initializing " + s.ApiVersion + " api routes...")
 
 	s.setupMiddleware()
-
-	if err := s.setupRoutes(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Server) Run() {
-	log.Info().Msg("server is running on " + s.ApiUrl + "/api/" + s.ApiVersion)
-	http.ListenAndServe(s.ApiUrl, s.Router)
-}
-
-func (s *Server) setupRoutes() error {
-	log.Info().Msg("initializing " + s.ApiVersion + " api routes...")
 
 	// routing all api endpoints
 	s.Router.Get("/health", HealthHandler)
@@ -68,4 +53,9 @@ func (s *Server) setupRoutes() error {
 func (s *Server) setupMiddleware() {
 	s.Router.Use(middleware.Logger)
 
+}
+
+func (s *Server) Run() {
+	log.Info().Msg("server is running on " + s.ApiUrl + "/api/" + s.ApiVersion)
+	http.ListenAndServe(s.ApiUrl, s.Router)
 }
