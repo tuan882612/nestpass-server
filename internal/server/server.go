@@ -29,8 +29,8 @@ func NewServer() (*Server, error) {
 
 	return &Server{
 		Router:     chi.NewRouter(),
-		ApiUrl:     cfg.HOST + ":" + cfg.PORT,
-		ApiVersion: cfg.API_VERSION,
+		ApiUrl:     cfg.Host + ":" + cfg.Port,
+		ApiVersion: cfg.ApiVersion,
 		Cfg:        cfg,
 	}, nil
 }

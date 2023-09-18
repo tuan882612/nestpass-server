@@ -11,13 +11,13 @@ import (
 )
 
 type Configuration struct {
-	HOST        string
-	PORT        string
-	API_VERSION string
-	PG_URL      string
-	NUM_CPU     int
-	REDIS_URL   string
-	REDIS_PSW   string
+	Host       string
+	Port       string
+	ApiVersion string
+	PgUrl      string
+	NumCpu     int
+	RedisUrl   string
+	RedisPsw   string
 }
 
 func NewConfiguration() *Configuration {
@@ -29,26 +29,26 @@ func NewConfiguration() *Configuration {
 	redisPsw := os.Getenv("REDIS_PSW")
 
 	return &Configuration{
-		HOST:        host,
-		PORT:        port,
-		API_VERSION: apiVersion,
-		PG_URL:      pgUrl,
-		NUM_CPU:     runtime.NumCPU(),
-		REDIS_URL:   redisUrl,
-		REDIS_PSW:   redisPsw,
+		Host:       host,
+		Port:       port,
+		ApiVersion: apiVersion,
+		PgUrl:      pgUrl,
+		NumCpu:     runtime.NumCPU(),
+		RedisUrl:   redisUrl,
+		RedisPsw:   redisPsw,
 	}
 }
 
 func (s *Configuration) Validate() error {
 	// create a map of the config values
 	configMap := map[string]interface{}{
-		"HOST":        s.HOST,
-		"PORT":        s.PORT,
-		"API_VERSION": s.API_VERSION,
-		"PG_URL":      s.PG_URL,
-		"NUM_CPU":     s.NUM_CPU,
-		"REDIS_URL":   s.REDIS_URL,
-		"REDIS_PSW":   s.REDIS_PSW,
+		"HOST":       s.Host,
+		"PORT":       s.Port,
+		"ApiVersion": s.ApiVersion,
+		"PG_URL":     s.PgUrl,
+		"NUM_CPU":    s.NumCpu,
+		"REDIS_URL":  s.RedisUrl,
+		"REDIS_PSW":  s.RedisPsw,
 	}
 
 	// check if any of the config values are empty
