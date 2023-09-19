@@ -1,6 +1,8 @@
 package singlefa
 
 import (
+	"context"
+
 	"github.com/rs/zerolog/log"
 	"github.com/tuan882612/apiutils"
 
@@ -8,11 +10,11 @@ import (
 )
 
 type service struct {
-	authService *auth.Service
+	authService auth.Service
 	jwtHandler  *auth.JWTManger
 }
 
-func NewService(authSvc *auth.Service, jwtHandler *auth.JWTManger) (Service, error) {
+func NewService(authSvc auth.Service, jwtHandler *auth.JWTManger) (Service, error) {
 	depMap := apiutils.Dependencies{
 		"authService": authSvc,
 		"jwtHandler":  jwtHandler,
@@ -29,10 +31,30 @@ func NewService(authSvc *auth.Service, jwtHandler *auth.JWTManger) (Service, err
 	}, nil
 }
 
-func (s *service) SfaLogin() {
+func (s *service) SfaLogin(ctx context.Context, input *auth.LoginInput) (string, error) {
+	userID, err := s.authService.VerifyUser(ctx, input.Email, input.Password)
+	if err != nil {
+		return "", err
+	}
 
+	token, err := s.jwtHandler.GenerateToken(userID)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
 
-func (s *service) SfaRegister() {
+func (s *service) SfaRegister(ctx context.Context, input *auth.RegisterInput) (string, error) {
+	userID, err := s.authService.RegisterUser(ctx, input)
+	if err != nil {
+		return "", err
+	}
 
+	token, err := s.jwtHandler.GenerateToken(userID)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
