@@ -7,7 +7,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog/log"
 
+	"project/internal/auth"
+	"project/internal/auth/singlefa"
 	"project/internal/config"
+	"project/internal/server/routes"
 )
 
 type Server struct {
@@ -40,11 +43,31 @@ func (s *Server) SetupRouter() error {
 
 	s.setupMiddleware()
 
+	authRepo, err := auth.NewRepository(s.Cfg)
+	if err != nil {
+		return err
+	}
+
+	authService, err := auth.NewService(authRepo)
+	if err != nil {
+		return err
+	}
+
+	jwtHandler, err := auth.NewJWTManager(s.Cfg.SignKey, s.Cfg.Duration)
+	if err != nil {
+		return err
+	}
+
+	sfaHandler, err := singlefa.NewHandler(authService, jwtHandler)
+	if err != nil {
+		return err
+	}
+
 	// routing all api endpoints
 	s.Router.Get("/health", HealthHandler)
 	s.Router.NotFound(NotFoundHandler)
 	s.Router.Route("/api/"+s.ApiVersion, func(r chi.Router) {
-
+		r.Route("/sfa", routes.SingleFA(sfaHandler))
 	})
 
 	return nil
