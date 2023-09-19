@@ -18,6 +18,8 @@ type Configuration struct {
 	NumCpu     int
 	RedisUrl   string
 	RedisPsw   string
+	SignKey    string
+	Duration   time.Duration
 }
 
 func NewConfiguration() *Configuration {
@@ -27,6 +29,11 @@ func NewConfiguration() *Configuration {
 	pgUrl := os.Getenv("PG_URL")
 	redisUrl := os.Getenv("REDIS_URL")
 	redisPsw := os.Getenv("REDIS_PSW")
+	singKey := os.Getenv("SIGN_KEY")
+	duration, err := time.ParseDuration(os.Getenv("TOKEN_DURATION"))
+	if err != nil {
+		duration = 12
+	}
 
 	return &Configuration{
 		Host:       host,
@@ -36,6 +43,8 @@ func NewConfiguration() *Configuration {
 		NumCpu:     runtime.NumCPU(),
 		RedisUrl:   redisUrl,
 		RedisPsw:   redisPsw,
+		SignKey:    singKey,
+		Duration:   duration,
 	}
 }
 
@@ -49,6 +58,8 @@ func (s *Configuration) Validate() error {
 		"NUM_CPU":    s.NumCpu,
 		"REDIS_URL":  s.RedisUrl,
 		"REDIS_PSW":  s.RedisPsw,
+		"SIGN_KEY":   s.SignKey,
+		"DURATION":   s.Duration,
 	}
 
 	// check if any of the config values are empty
