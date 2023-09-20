@@ -18,7 +18,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	svr, err := server.NewServer()
+	// initialize and validate new configuration instance
+	cfg := config.NewConfiguration()
+
+	if err := cfg.Validate(); err != nil {
+		os.Exit(1)
+	}
+
+	svr, err := server.New(cfg)
 	if err != nil {
 		os.Exit(1)
 	}
