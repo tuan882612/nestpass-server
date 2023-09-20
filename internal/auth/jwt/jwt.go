@@ -1,4 +1,4 @@
-package auth
+package jwt
 
 import (
 	"errors"
@@ -9,11 +9,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// This stuct handles the creation of JWT tokens and other related tasks.
 type JWTManger struct {
 	secert   string
 	duration time.Duration
 }
 
+// This is the constructor for the JWT manager.
 func NewJWTManager(cfgSecert string, tokenDuration time.Duration) (*JWTManger, error) {
 	if cfgSecert == "" || tokenDuration == 0 {
 		msg := "invalid jwt handler arguments"
@@ -27,6 +29,7 @@ func NewJWTManager(cfgSecert string, tokenDuration time.Duration) (*JWTManger, e
 	}, nil
 }
 
+// This method generates a JWT token for the user.
 func (j *JWTManger) GenerateToken(userID uuid.UUID) (string, error) {
 	if userID == uuid.Nil {
 		msg := "nil userID"
@@ -34,12 +37,14 @@ func (j *JWTManger) GenerateToken(userID uuid.UUID) (string, error) {
 		return "", errors.New(msg)
 	}
 
+	// create new claims
 	claims, err := NewClaims(userID, j.duration)
 	if err != nil {
 		log.Error().Str("location", "GenerateToken").Msg(err.Error())
 		return "", err
 	}
 
+	// sign the claims and return the token
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(j.secert))
 	if err != nil {
 		log.Error().Str("location", "GenerateToken").Msg(err.Error())
