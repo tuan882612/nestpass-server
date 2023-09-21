@@ -70,12 +70,12 @@ func (r *repository) AddUser(ctx context.Context, tx pgx.Tx, input *RegisterResp
 	}
 
 	_, err := tx.Exec(ctx, AddUserQuery,
-		input.UserID,
-		input.Email,
-		input.Name,
-		input.Password,
-		input.Registered,
-		input.UserStatus,
+		&input.UserID,
+		&input.Email,
+		&input.Name,
+		&input.Password,
+		&input.Registered,
+		&input.UserStatus,
 	)
 
 	// checking for errors
