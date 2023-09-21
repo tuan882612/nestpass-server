@@ -25,8 +25,6 @@ func getPostgres(ctx context.Context, pgUrl string, numCpu int) (*pgxpool.Pool, 
 		return nil, err
 	}
 
-	config.MinConns, config.MaxConns = int32(numCpu)/2, int32(numCpu)*4
-
 	// connect to postgres database
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
