@@ -84,7 +84,7 @@ func (li *LoginInput) Deserialize(data io.ReadCloser) error {
 type RegisterInput struct {
 	Email    string `json:"email" validate:"required,email"`
 	Name     string `json:"name" validate:"required"`
-	Password string `json:"password" validate:"required,min=16,max=32"`
+	Password string `json:"password" validate:"required,max=32"`
 }
 
 func (ri *RegisterInput) Deserialize(data io.ReadCloser) error {
