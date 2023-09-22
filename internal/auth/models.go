@@ -17,7 +17,7 @@ import (
 
 // This struct that holds the dependencies for the base authentication service.
 type Deps struct {
-	Service    Service // base authentication service
+	Service   Service // base authentication service
 	JWTManger *jwt.JWTManger
 }
 
@@ -47,7 +47,7 @@ func NewDependencies(cfg *config.Configuration) (*Deps, error) {
 	}
 
 	return &Deps{
-		Service:    service,
+		Service:   service,
 		JWTManger: jwtManager,
 	}, nil
 }
