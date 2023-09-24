@@ -2,6 +2,7 @@ binary_name=main
 
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
+GRPC_MODULE ?= twofa
 BUILD_FLAGS ?= -v
 
 WINDOWS_EXEC := main.exe
@@ -40,3 +41,9 @@ fmt:
 Test:
 	go clean -testcache
 	go test ./... -race -v
+
+proto:
+	protoc -I=internal/proto \
+	--go_out=internal/proto \
+	--go-grpc_out=internal/proto \
+	internal/proto/${GRPC_MODULE}.proto
