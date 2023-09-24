@@ -4,29 +4,25 @@ import (
 	"context"
 	"errors"
 
+	"github.com/go-redis/redis"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rs/zerolog/log"
 	"github.com/tuan882612/apiutils"
 
+	"project/internal/auth/email"
 	"project/internal/config"
 	"project/internal/database"
 )
 
-// This is the base authentication repository.
+// Base authentication repository.
 type repository struct {
 	db *database.DataAccess
 }
 
-// This is the constructor for the base authentication repository.
+// Constructor for the base authentication repository.
 func NewRepository(cfg *config.Configuration) (Repository, error) {
-	if cfg == nil {
-		msg := "nil configuration"
-		log.Error().Str("location", "NewRepository").Msg(msg)
-		return nil, errors.New(msg)
-	}
-
 	databases, err := database.NewDataAccess(cfg.NumCpu, cfg.PgUrl, cfg.RedisUrl, cfg.RedisPsw)
 	if err != nil {
 		return nil, err
@@ -35,14 +31,8 @@ func NewRepository(cfg *config.Configuration) (Repository, error) {
 	return &repository{db: databases}, nil
 }
 
-// This method retrieves the user's uuid and password from the database if the user exists.
+// Retrieves the user's uuid and password from the database if the user exists.
 func (r *repository) GetUserCredentials(ctx context.Context, email string) (uuid.UUID, string, error) {
-	if email == "" {
-		msg := "empty email"
-		log.Error().Str("location", "GetUserCredentials").Msg(msg)
-		return uuid.Nil, "", errors.New(msg)
-	}
-
 	// initialize credential variables
 	var userID uuid.UUID
 	var password string
@@ -61,14 +51,58 @@ func (r *repository) GetUserCredentials(ctx context.Context, email string) (uuid
 	return userID, password, nil
 }
 
-// This method adds a new user to the database.
-func (r *repository) AddUser(ctx context.Context, tx pgx.Tx, input *RegisterResp) error {
-	if input == nil {
-		msg := "nil input"
-		log.Error().Str("location", "AddUser").Msg(msg)
-		return errors.New(msg)
+// Retrieves the user's twofa data.
+func (r *repository) GetTwofaCache(ctx context.Context, userID uuid.UUID) (*email.TwofaBody, error) {
+	data, err := r.db.Redis.Get(userID.String()).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, apiutils.NewErrNotFound("twofa not found")
+		}
+
+		log.Error().Str("location", "GetTwofaCache").Msg(err.Error())
+		return nil, err
 	}
 
+	tfaBody := &email.TwofaBody{}
+	if err := tfaBody.Deserialize(data); err != nil {
+		log.Error().Str("location", "GetTwofaCache").Msg(err.Error())
+		return nil, err
+	}
+
+	return tfaBody, nil
+}
+
+// Updates the user's twofa data.
+func (r *repository) UpdateTwofaCache(ctx context.Context, userID uuid.UUID, body *email.TwofaBody) error {
+	data, err := body.Serialize()
+	if err != nil {
+		log.Error().Str("location", "UpdateTwofaCache").Msg(err.Error())
+		return err
+	}
+
+	// update the twofa data and set the ttl to the previous value
+	idStr := userID.String()
+	ttl := r.db.Redis.TTL(idStr).Val()
+	if err := r.db.Redis.Set(idStr, data, ttl).Err(); err != nil {
+		log.Error().Str("location", "UpdateTwofaCache").Msg(err.Error())
+		return err
+	}
+
+	return nil
+}
+
+// Deletes the user's twofa data.
+func (r *repository) DeleteTwofaCache(ctx context.Context, userID uuid.UUID) error {
+	if err := r.db.Redis.Del(uuid.UUID.String(userID)).Err(); err != nil {
+		log.Error().Str("location", "DeleteTwofaCache").Msg(err.Error())
+		return err
+	}
+
+	return nil
+}
+
+// Adds a new user to the database.
+func (r *repository) AddUser(ctx context.Context, tx pgx.Tx, input *RegisterResp) error {
 	_, err := tx.Exec(ctx, AddUserQuery,
 		&input.UserID,
 		&input.Email,
@@ -93,7 +127,17 @@ func (r *repository) AddUser(ctx context.Context, tx pgx.Tx, input *RegisterResp
 	return nil
 }
 
-// This method starts a new postgres transaction.
+// Updates the user's status to "active".
+func (r *repository) UpdateUserStatus(ctx context.Context, userID uuid.UUID) error {
+	if _, err := r.db.Postgres.Exec(ctx, UpdateUserStatusQuery, userID); err != nil {
+		log.Error().Str("location", "UpdateUserStatus").Msg(err.Error())
+		return err
+	}
+
+	return nil
+}
+
+// Starts a new postgres transaction.
 func (r *repository) startTx(ctx context.Context) (pgx.Tx, error) {
 	tx, err := r.db.Postgres.Begin(ctx)
 	if err != nil {
