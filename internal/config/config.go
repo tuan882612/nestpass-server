@@ -13,6 +13,7 @@ import (
 type Configuration struct {
 	Host       string
 	Port       string
+	GRPCPort   string
 	ApiVersion string
 	PgUrl      string
 	NumCpu     int
@@ -26,6 +27,7 @@ func NewConfiguration() *Configuration {
 	apiVersion := os.Getenv("API_VERSION")
 	port := os.Getenv("PORT")
 	host := os.Getenv("HOST")
+	grpcPort := os.Getenv("GRPC_PORT")
 	pgUrl := os.Getenv("PG_URL")
 	redisUrl := os.Getenv("REDIS_URL")
 	redisPsw := os.Getenv("REDIS_PSW")
@@ -38,6 +40,7 @@ func NewConfiguration() *Configuration {
 	return &Configuration{
 		Host:       host,
 		Port:       port,
+		GRPCPort:   grpcPort,
 		ApiVersion: apiVersion,
 		PgUrl:      pgUrl,
 		NumCpu:     runtime.NumCPU(),
@@ -53,6 +56,7 @@ func (s *Configuration) Validate() error {
 	configMap := map[string]interface{}{
 		"HOST":       s.Host,
 		"PORT":       s.Port,
+		"GRPC_PORT":  s.GRPCPort,
 		"ApiVersion": s.ApiVersion,
 		"PG_URL":     s.PgUrl,
 		"NUM_CPU":    s.NumCpu,
