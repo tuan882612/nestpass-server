@@ -1,7 +1,6 @@
 package server
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -10,6 +9,7 @@ import (
 
 	"project/internal/auth"
 	"project/internal/auth/singlefa"
+	"project/internal/auth/twofa"
 	"project/internal/config"
 	"project/internal/server/routes"
 )
@@ -23,18 +23,12 @@ type Server struct {
 	ApiUrl     string
 	ApiVersion string
 	// dependencies
-	AuthDeps *auth.Deps
+	AuthDeps *auth.Dependencies
 }
 
-// New is a constructor for the HTTP server which also initializes all needed dependencies.
+// Creates a new HTTP server along with initializing all needed dependencies.
 func New(cfg *config.Configuration) (*Server, error) {
 	log.Info().Msg("initializing server...")
-
-	if cfg == nil {
-		msg := "nil configuration"
-		log.Error().Str("location", "New").Msg(msg)
-		return nil, errors.New(msg)
-	}
 
 	// initializing auth dependencies
 	authDeps, err := auth.NewDependencies(cfg)
@@ -51,22 +45,21 @@ func New(cfg *config.Configuration) (*Server, error) {
 	}, nil
 }
 
-// This method setups all routes and middlewares.
+// Setups all routes and middlewares.
 func (s *Server) SetupRouter() error {
 	log.Info().Msg("initializing " + s.ApiVersion + " api routes...")
 	s.setupMiddleware()
 
 	// setting up handlers
-	sfaHandler, err := singlefa.NewHandler(s.AuthDeps.Service, s.AuthDeps.JWTManger)
-	if err != nil {
-		return err
-	}
+	sfaHandler := singlefa.NewHandler(s.AuthDeps)
+	twofaHandler := twofa.NewHandler(s.AuthDeps)
 
 	// routing all api endpoints
-	s.Router.Get("/health", HealthHandler)
 	s.Router.NotFound(NotFoundHandler)
 	s.Router.Route("/api/"+s.ApiVersion, func(r chi.Router) {
+		r.Get("/health", HealthHandler)
 		r.Route("/sfa", routes.SingleFA(sfaHandler))
+		r.Route("/twofa", routes.TwoFA(twofaHandler, r))
 	})
 
 	return nil
