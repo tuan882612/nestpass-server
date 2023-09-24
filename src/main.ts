@@ -1,20 +1,29 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
+import { AppModule } from './app.module';
+import ValidateEnv from './utilites/config/env.validator';
 
 async function bootstrap() {
-  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
-    AppModule,
-    {
-      transport: Transport.GRPC,
-      options: {
-        url: 'localhost:5000',
-        package: 'app',
-        protoPath: join(__dirname, './app.proto'),
+  if (!ValidateEnv()) {
+    return;
+  }
+
+  try {
+    const app = await NestFactory.createMicroservice<MicroserviceOptions>(
+      AppModule,
+      {
+        transport: Transport.GRPC,
+        options: {
+          url: 'localhost:' + process.env.PORT,
+          package: ['twofa'],
+          protoPath: join(__dirname, '../src/twofa/twofa.proto'),
+        },
       },
-    },
-  );
-  await app.listen().then(() => console.log('listening on port 5000'));
+    );
+    app.listen();
+  } catch (error) {
+    process.exit(1);
+  }
 }
 bootstrap();
