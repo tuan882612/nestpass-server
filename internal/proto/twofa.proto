@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+option go_package = "./pb/twofapb";
+
+package twofa;
+
+service TwoFAService {
+    rpc GenerateTwoFACode (TwoFAPayload) returns (google.protobuf.Empty);
+}
+
+message TwoFAPayload {
+    string user_id = 1;
+    string email = 2;
+}
