@@ -23,7 +23,7 @@ export class TwofaController {
     ValidatePayload(data);
     await this.twofaService.sendVerifactionEmail(data);
     this.logger.log(
-      `Verification Email sent and Auth Code cached successfully`,
+      data.userId + data.email + `: Verification email proccess successfully`,
     );
   }
 }
