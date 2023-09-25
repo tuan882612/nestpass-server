@@ -10,7 +10,7 @@ import (
 
 // Single-factor authentication endpoint handlers.
 type Handler struct {
-	sfaService Service
+	sfaService *Service
 }
 
 // Constructor for the single-factor authentication endpoint handlers.

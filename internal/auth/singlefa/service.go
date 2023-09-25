@@ -8,21 +8,21 @@ import (
 )
 
 // This is the single-factor authentication service.
-type service struct {
-	authService auth.Service // base authentication service
+type Service struct {
+	authService *auth.Service // base authentication service
 	jwtManager  *jwt.Manager
 }
 
 // Constructor for the single-factor authentication service.
-func NewService(deps *auth.Dependencies) Service {
-	return &service{
+func NewService(deps *auth.Dependencies) *Service {
+	return &Service{
 		authService: deps.Service,
 		jwtManager:  deps.JWTManager,
 	}
 }
 
 // Verifies the user's credentials and returns a JWT token if the verification is successful.
-func (s *service) SfaLogin(ctx context.Context, input *auth.LoginInput) (string, error) {
+func (s *Service) SfaLogin(ctx context.Context, input *auth.LoginInput) (string, error) {
 	userID, err := s.authService.VerifyUser(ctx, input.Email, input.Password)
 	if err != nil {
 		return "", err
@@ -37,7 +37,7 @@ func (s *service) SfaLogin(ctx context.Context, input *auth.LoginInput) (string,
 }
 
 // Registers a new user and returns a JWT token if the registration is successful.
-func (s *service) SfaRegister(ctx context.Context, input *auth.RegisterInput) (string, error) {
+func (s *Service) SfaRegister(ctx context.Context, input *auth.RegisterInput) (string, error) {
 	// convert RegisterInput to RegisterResp and validate the input
 	regResp, err := auth.NewRegisterResp(input)
 	if err != nil {

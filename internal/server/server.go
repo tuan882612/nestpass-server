@@ -8,7 +8,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"project/internal/auth"
-	"project/internal/auth/singlefa"
 	"project/internal/auth/twofa"
 	"project/internal/config"
 	"project/internal/server/routes"
@@ -20,7 +19,7 @@ type Server struct {
 	Router *chi.Mux
 	Cfg    *config.Configuration
 	// server properties
-	ApiUrl     string
+	ApiAddr    string
 	ApiVersion string
 	// dependencies
 	AuthDeps *auth.Dependencies
@@ -39,8 +38,8 @@ func New(cfg *config.Configuration) (*Server, error) {
 	return &Server{
 		Router:     chi.NewRouter(),
 		Cfg:        cfg,
-		ApiUrl:     cfg.Host + ":" + cfg.Port,
-		ApiVersion: cfg.ApiVersion,
+		ApiAddr:    cfg.Host + ":" + cfg.Port,
+		ApiVersion: "/api/" + cfg.ApiVersion,
 		AuthDeps:   authDeps,
 	}, nil
 }
@@ -51,14 +50,14 @@ func (s *Server) SetupRouter() error {
 	s.setupMiddleware()
 
 	// setting up handlers
-	sfaHandler := singlefa.NewHandler(s.AuthDeps)
+	// sfaHandler := singlefa.NewHandler(s.AuthDeps) // for development only
 	twofaHandler := twofa.NewHandler(s.AuthDeps)
 
 	// routing all api endpoints
 	s.Router.NotFound(NotFoundHandler)
-	s.Router.Route("/api/"+s.ApiVersion, func(r chi.Router) {
+	s.Router.Route(s.ApiVersion, func(r chi.Router) {
 		r.Get("/health", HealthHandler)
-		r.Route("/sfa", routes.SingleFA(sfaHandler))
+		// r.Route("/sfa", routes.SingleFA(sfaHandler)) // for development only
 		r.Route("/twofa", routes.TwoFA(twofaHandler, r))
 	})
 
@@ -73,6 +72,6 @@ func (s *Server) setupMiddleware() {
 
 // Starts the HTTP server.
 func (s *Server) Run() {
-	log.Info().Msg("server is running on " + s.ApiUrl + "/api/" + s.ApiVersion)
-	http.ListenAndServe(s.ApiUrl, s.Router)
+	log.Info().Msg("server is running on " + s.ApiAddr + s.ApiVersion)
+	http.ListenAndServe(s.ApiAddr, s.Router)
 }
