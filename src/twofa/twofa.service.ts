@@ -61,13 +61,6 @@ export class TwofaService implements OnModuleInit {
     payload: Payload,
     code: string,
   ): Promise<void> {
-    // check if redis client is connected.
-    if (!this.redisClient || !this.redisClient.connect) {
-      const errMsg: string = 'Redis client is not connected';
-      this.logger.error(errMsg);
-      throw new RpcException({ details: errMsg, code: status.INTERNAL });
-    }
-
     const key: string = payload.userId;
     const value: CachePayload = {
       Code: code,
