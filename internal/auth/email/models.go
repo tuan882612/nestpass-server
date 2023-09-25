@@ -52,7 +52,7 @@ func (ti *TokenInput) Deserialize(data io.ReadCloser) error {
 }
 
 type ResendInput struct {
-	Email  string `json:"email"`
+	Email  string    `json:"email"`
 	UserID uuid.UUID `json:"user_id"`
 }
 

@@ -12,7 +12,7 @@ import (
 
 // struct for handling two factor authentication requests
 type Handler struct {
-	twofaService Service
+	twofaService *Service
 }
 
 // NewHandler returns a new handler for two factor authentication requests
@@ -28,10 +28,7 @@ func (h *Handler) ResendCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.twofaService.SendVerificationEmail(r.Context(), input.UserID, input.Email); err != nil {
-		apiutils.HandleHttpErrors(w, err)
-		return
-	}
+	go h.twofaService.SendVerificationEmail(input.UserID, input.Email)
 
 	resp := apiutils.NewRes(http.StatusOK, "", nil)
 	resp.SendRes(w)

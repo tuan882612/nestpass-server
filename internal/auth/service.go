@@ -10,17 +10,17 @@ import (
 )
 
 // Base authentication service.
-type service struct {
-	repository Repository
+type Service struct {
+	repository *Repository
 }
 
 // Constructor for the base authentication service.
-func NewService(repo Repository) Service {
-	return &service{repository: repo}
+func NewService(repo *Repository) *Service {
+	return &Service{repository: repo}
 }
 
 // Retrieves the user credentials and returns the user ID if the credentials are valid.
-func (s *service) VerifyUser(ctx context.Context, email, password string) (uuid.UUID, error) {
+func (s *Service) VerifyUser(ctx context.Context, email, password string) (uuid.UUID, error) {
 	// retrieve the user credentials from the database
 	userID, userPassword, err := s.repository.GetUserCredentials(ctx, email)
 	if err != nil {
@@ -36,7 +36,7 @@ func (s *service) VerifyUser(ctx context.Context, email, password string) (uuid.
 }
 
 // Registers a new user and returns the user ID if the registration is successful.
-func (s *service) RegisterUser(ctx context.Context, body *RegisterResp) error {
+func (s *Service) RegisterUser(ctx context.Context, body *RegisterResp) error {
 	// start a new transaction and rollback if there is an error
 	tx, err := s.repository.startTx(ctx)
 	if err != nil {
