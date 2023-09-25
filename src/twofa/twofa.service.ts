@@ -76,8 +76,11 @@ export class TwofaService implements OnModuleInit {
 
     // cache the verification code and set the expiry time.
     try {
-      await this.redisClient.set(key, JSON.stringify(value));
-      await this.redisClient.expire(key, 180);
+      await this.redisClient
+        .multi()
+        .set(key, JSON.stringify(value))
+        .expire(key, 180)
+        .exec();
     } catch (error) {
       this.logger.error(error);
       throw new RpcException({ details: error.message, code: status.INTERNAL });
