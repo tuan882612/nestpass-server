@@ -2,6 +2,7 @@ package twofa
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -14,24 +15,30 @@ import (
 )
 
 // Service for handling two-factor authentication.
-type service struct {
-	authRepo     auth.Repository // base auth repository
-	authService  auth.Service    // base auth service
+type Service struct {
+	authRepo     *auth.Repository // base auth repository
+	authService  *auth.Service    // base auth service
+	cacheRepo    *auth.Cache      // cache repository
 	jwtManager   *jwt.Manager
 	emailManager *email.Manager
 }
 
 // Creates a new two-factor authentication service with the given dependencies.
-func NewService(deps *auth.Dependencies) Service {
-	return &service{
+func NewService(deps *auth.Dependencies) *Service {
+	return &Service{
 		authRepo:     deps.Repository,
 		authService:  deps.Service,
+		cacheRepo:    deps.Cache,
 		jwtManager:   deps.JWTManager,
 		emailManager: deps.EmailManager,
 	}
 }
 
-func (s *service) SendVerificationEmail(ctx context.Context, userID uuid.UUID, email string) error {
+func (s *Service) SendVerificationEmail(userID uuid.UUID, email string) {
+	// create new context with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
 	// Make new payload with input email and user id
 	payload := &twofapb.TwoFAPayload{
 		UserId: userID.String(),
@@ -41,16 +48,16 @@ func (s *service) SendVerificationEmail(ctx context.Context, userID uuid.UUID, e
 	// send the two-factor auth code to the user's email
 	_, err := s.emailManager.Client.GenerateTwoFACode(ctx, payload)
 	if err != nil {
-		log.Error().Str("location", "SendVerificationEmail").Msg(err.Error())
-		return err
+		log.Error().Str("location", "SendVerificationEmail").Msg("failed to send verification email: " + err.Error())
+		return
 	}
 
-	return nil
+	log.Info().Msg("successfully sent verification email")
 }
 
 // Verifies the two-factor auth code and returns a JWT token if the verification is successful.
-func (s *service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, input *email.TokenInput) (string, error) {
-	tfaBody, err := s.authRepo.GetTwofaCache(ctx, userID)
+func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, input *email.TokenInput) (string, error) {
+	tfaBody, err := s.cacheRepo.GetTwofaCache(ctx, userID)
 	if err != nil {
 		return "", err
 	}
@@ -58,7 +65,7 @@ func (s *service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, input *
 	if tfaBody.Code != input.Token {
 		// check if the user has any retries left
 		if tfaBody.Retries -= 1; tfaBody.Retries == 0 {
-			if err := s.authRepo.DeleteTwofaCache(ctx, userID); err != nil {
+			if err := s.cacheRepo.DeleteTwofaCache(ctx, userID); err != nil {
 				return "", err
 			}
 
@@ -66,7 +73,7 @@ func (s *service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, input *
 		}
 
 		// update the twofa retries
-		if err := s.authRepo.UpdateTwofaCache(ctx, userID, tfaBody); err != nil {
+		if err := s.cacheRepo.UpdateTwofaCache(ctx, userID, tfaBody); err != nil {
 			return "", err
 		}
 
@@ -75,7 +82,7 @@ func (s *service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, input *
 
 	// delete the twofa data
 	go func() {
-		if err := s.authRepo.DeleteTwofaCache(ctx, userID); err != nil {
+		if err := s.cacheRepo.DeleteTwofaCache(ctx, userID); err != nil {
 			log.Error().Str("location", "VerifyAuthToken").Msg(err.Error())
 			return
 		}
@@ -97,45 +104,37 @@ func (s *service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, input *
 }
 
 // Sends a two-factor authentication code to the user's email.
-func (s *service) LoginSend(ctx context.Context, input *auth.LoginInput) (string, error) {
+func (s *Service) LoginSend(ctx context.Context, input *auth.LoginInput) (string, error) {
 	data, err := s.authService.VerifyUser(ctx, input.Email, input.Password)
 	if err != nil {
 		return "", err
 	}
 
 	// send the two-factor auth code to the user's email in the background
-	go func() {
-		if err := s.SendVerificationEmail(ctx, data, input.Email); err != nil {
-			log.Error().Str("location", "LoginSend").Msg("failed to send email: " + err.Error())
-		}
-	}()
+	go s.SendVerificationEmail(data, input.Email)
 
 	return data.String(), nil
 }
 
-func (s *service) RegisterSend(ctx context.Context, input *auth.RegisterInput) (string, error) {
+func (s *Service) RegisterSend(ctx context.Context, input *auth.RegisterInput) (string, error) {
 	// convert RegisterInput to RegisterResp and validate the input
 	regResp, err := auth.NewRegisterResp(input)
 	if err != nil {
 		return "", err
 	}
 
-	// send the two-factor auth code to the user's email in the background
-	go func() {
-		if err := s.SendVerificationEmail(ctx, regResp.UserID, input.Email); err != nil {
-			log.Error().Str("location", "RegisterSend").Msg("failed to send email: " + err.Error())
-		}
-	}()
-
 	// register the user
 	if err := s.authService.RegisterUser(ctx, regResp); err != nil {
 		return "", err
 	}
 
+	// send the two-factor auth code to the user's email in the background
+	go s.SendVerificationEmail(regResp.UserID, input.Email)
+
 	return regResp.UserID.String(), nil
 }
 
-func (s *service) RegisterVerify(ctx context.Context, userID uuid.UUID, input *email.TokenInput) (string, error) {
+func (s *Service) RegisterVerify(ctx context.Context, userID uuid.UUID, input *email.TokenInput) (string, error) {
 	token, err := s.VerifyAuthToken(ctx, userID, input)
 	if err != nil {
 		return "", err
