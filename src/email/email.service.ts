@@ -11,6 +11,7 @@ import { EmailType } from '../interfaces/email.interface';
 @Injectable()
 export class EmailService {
   private logger = new Logger('EmailService');
+  private sender: string = process.env.MAIL_SENDER;
   constructor() {
     sendgrid.setApiKey(process.env.MAIL_API_KEY);
   }
@@ -24,7 +25,7 @@ export class EmailService {
     try {
       await sendgrid.send({
         to: email.to,
-        from: process.env.MAIL_SENDER,
+        from: this.sender,
         subject: email.subject,
         html: email.template,
       });
