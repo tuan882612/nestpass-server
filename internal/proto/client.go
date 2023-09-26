@@ -16,7 +16,7 @@ func NewGRPCConn(address string) (*grpc.ClientConn, error) {
 	)
 
 	if err != nil {
-		log.Err(err).Str("location", "NewGrpcConnection").Msg("failed to connect to grpc server")
+		log.Error().Str("location", "NewGrpcConnection").Msgf("failed to connect to grpc server: %v", err)
 		return nil, err
 	}
 

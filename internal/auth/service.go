@@ -51,7 +51,7 @@ func (s *Service) RegisterUser(ctx context.Context, body *RegisterResp) error {
 
 	// commit the transaction
 	if err := tx.Commit(ctx); err != nil {
-		log.Info().Str("location", "RegisterUser").Msg("failed to commit transaction")
+		log.Error().Str("location", "RegisterUser").Msgf("failed to commit transaction: %v", err)
 		return err
 	}
 

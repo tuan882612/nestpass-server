@@ -37,7 +37,7 @@ func (r *Repository) GetUserCredentials(ctx context.Context, email string) (uuid
 			return uuid.Nil, "", apiutils.NewErrNotFound("user not found")
 		}
 
-		log.Error().Str("location", "GetUserCredentials").Msg(err.Error())
+		log.Error().Str("location", "GetUserCredentials").Msgf("failed to get user credentials: %v", err)
 		return uuid.Nil, "", err
 	}
 
@@ -63,7 +63,7 @@ func (r *Repository) AddUser(ctx context.Context, tx pgx.Tx, input *RegisterResp
 			return apiutils.NewErrConflict("user already exists")
 		}
 
-		log.Error().Str("location", "AddUser").Msg(err.Error())
+		log.Error().Str("location", "AddUser").Msgf("%v: failed to add user: %v", input.UserID, err)
 		return err
 	}
 
@@ -73,7 +73,7 @@ func (r *Repository) AddUser(ctx context.Context, tx pgx.Tx, input *RegisterResp
 // Updates the user's status to "active".
 func (r *Repository) UpdateUserStatus(ctx context.Context, userID uuid.UUID) error {
 	if _, err := r.db.Exec(ctx, UpdateUserStatusQuery, userID); err != nil {
-		log.Error().Str("location", "UpdateUserStatus").Msg(err.Error())
+		log.Error().Str("location", "UpdateUserStatus").Msgf("%v: failed to update user status: %v", userID, err)
 		return err
 	}
 
@@ -84,7 +84,7 @@ func (r *Repository) UpdateUserStatus(ctx context.Context, userID uuid.UUID) err
 func (r *Repository) startTx(ctx context.Context) (pgx.Tx, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
-		log.Error().Str("location", "startTx").Msg(err.Error())
+		log.Error().Str("location", "startTx").Msgf("failed to start transaction: %v", err)
 		return nil, err
 	}
 

@@ -62,13 +62,13 @@ type LoginInput struct {
 func (li *LoginInput) Deserialize(data io.ReadCloser) error {
 	// deserialize the data
 	if err := json.NewDecoder(data).Decode(&li); err != nil {
-		log.Error().Str("location", "LoginInput.Deserialize").Msg(err.Error())
+		log.Error().Str("location", "LoginInput.Deserialize").Msgf("failed to deserialize data: %v", err)
 		return err
 	}
 
 	// validate the input
 	if err := validator.New().Struct(li); err != nil {
-		log.Error().Str("location", "Validate").Msg(err.Error())
+		log.Error().Str("location", "LoginInput.Deserialize").Msgf("failed to validate input: %v", err)
 		return err
 	}
 
@@ -85,13 +85,13 @@ type RegisterInput struct {
 func (ri *RegisterInput) Deserialize(data io.ReadCloser) error {
 	// deserialize the data
 	if err := json.NewDecoder(data).Decode(&ri); err != nil {
-		log.Error().Str("location", "RegisterInput.Deserialize").Msg(err.Error())
+		log.Error().Str("location", "RegisterInput.Deserialize").Msgf("failed to deserialize data: %v", err)
 		return err
 	}
 
 	// validate the input
 	if err := validator.New().Struct(ri); err != nil {
-		log.Error().Str("location", "Validate").Msg(err.Error())
+		log.Error().Str("location", "RegisterInput.Deserialize").Msgf("failed to validate input: %v", err)
 		return err
 	}
 
@@ -110,14 +110,14 @@ type RegisterResp struct {
 func NewRegisterResp(input *RegisterInput) (*RegisterResp, error) {
 	// validate the input
 	if err := validator.New().Struct(input); err != nil {
-		log.Error().Str("location", "NewRegisterResp").Msg(err.Error())
+		log.Error().Str("location", "NewRegisterResp").Msgf("failed to validate input: %v", err)
 		return nil, err
 	}
 
 	// hash the password
 	hashedPsw, err := securityutils.HashPassword(input.Password)
 	if err != nil {
-		log.Error().Str("location", "NewRegisterResp").Msg(err.Error())
+		log.Error().Str("location", "NewRegisterResp").Msgf("failed to hash password: %v", err)
 		return nil, err
 	}
 

@@ -34,9 +34,10 @@ func NewService(deps *auth.Dependencies) *Service {
 	}
 }
 
+// Sends a two-factor auth code to the user if the verification is successful.
 func (s *Service) SendVerificationEmail(userID uuid.UUID, email string) {
 	// create new context with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	// Make new payload with input email and user id
@@ -48,7 +49,7 @@ func (s *Service) SendVerificationEmail(userID uuid.UUID, email string) {
 	// send the two-factor auth code to the user's email
 	_, err := s.emailManager.Client.GenerateTwoFACode(ctx, payload)
 	if err != nil {
-		log.Error().Str("location", "SendVerificationEmail").Msg("failed to send verification email: " + err.Error())
+		log.Error().Str("location", "SendVerificationEmail").Msgf("%v: failed to send verification email: %v", userID, err)
 		return
 	}
 
@@ -57,7 +58,7 @@ func (s *Service) SendVerificationEmail(userID uuid.UUID, email string) {
 
 // Verifies the two-factor auth code and returns a JWT token if the verification is successful.
 func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, input *email.TokenInput) (string, error) {
-	tfaBody, err := s.cacheRepo.GetTwofaCache(ctx, userID)
+	tfaBody, err := s.cacheRepo.GetTwofa(ctx, userID)
 	if err != nil {
 		return "", err
 	}
@@ -65,7 +66,7 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, input *
 	if tfaBody.Code != input.Token {
 		// check if the user has any retries left
 		if tfaBody.Retries -= 1; tfaBody.Retries == 0 {
-			if err := s.cacheRepo.DeleteTwofaCache(ctx, userID); err != nil {
+			if err := s.cacheRepo.DeleteTwofa(ctx, userID); err != nil {
 				return "", err
 			}
 
@@ -73,27 +74,29 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, input *
 		}
 
 		// update the twofa retries
-		if err := s.cacheRepo.UpdateTwofaCache(ctx, userID, tfaBody); err != nil {
+		if err := s.cacheRepo.UpdateTwofa(ctx, userID, tfaBody); err != nil {
 			return "", err
 		}
 
 		return "", apiutils.NewErrUnauthorized("invalid code")
 	}
 
-	// delete the twofa data
+	// delete the twofa data in the background
 	go func() {
-		if err := s.cacheRepo.DeleteTwofaCache(ctx, userID); err != nil {
-			log.Error().Str("location", "VerifyAuthToken").Msg(err.Error())
+		if err := s.cacheRepo.DeleteTwofa(ctx, userID); err != nil {
+			log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to delete twofa cache: %v", userID, err)
 			return
 		}
+
+		log.Info().Msg("successfully deleted twofa cache")
 	}()
 
-	// generate a JWT token
+	// generate a JWT token in the background
 	tokenChan := make(chan string, 1)
 	go func() {
 		token, err := s.jwtManager.GenerateToken(userID)
 		if err != nil {
-			log.Error().Str("location", "VerifyAuthToken").Msg(err.Error())
+			log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to generate JWT token: %v", userID, err)
 			return
 		}
 
@@ -143,8 +146,10 @@ func (s *Service) RegisterVerify(ctx context.Context, userID uuid.UUID, input *e
 	// update the user's status in the background
 	go func() {
 		if err := s.authRepo.UpdateUserStatus(ctx, userID); err != nil {
-			log.Error().Str("location", "RegisterVerify").Msg(err.Error())
+			log.Error().Str("location", "RegisterVerify").Msgf("%v: failed to update user status: %v", userID, err)
 		}
+
+		log.Info().Msgf("%v: successfully updated user status", userID)
 	}()
 
 	return token, nil

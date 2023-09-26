@@ -29,7 +29,7 @@ func (j *Manager) GenerateToken(userID uuid.UUID) (string, error) {
 	// sign the claims and return the token
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(j.secert))
 	if err != nil {
-		log.Error().Str("location", "GenerateToken").Msg(err.Error())
+		log.Error().Str("location", "GenerateToken").Msgf("failed to generate token: %v", err)
 		return "", err
 	}
 
