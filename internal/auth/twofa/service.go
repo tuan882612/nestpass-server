@@ -91,19 +91,14 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, input *
 		log.Info().Msg("successfully deleted twofa cache")
 	}()
 
-	// generate a JWT token in the background
-	tokenChan := make(chan string, 1)
-	go func() {
-		token, err := s.jwtManager.GenerateToken(userID)
-		if err != nil {
-			log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to generate JWT token: %v", userID, err)
-			return
-		}
+	// generate a JWT token
+	token, err := s.jwtManager.GenerateToken(userID)
+	if err != nil {
+		log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to generate JWT token: %v", userID, err)
+		return "", err
+	}
 
-		tokenChan <- token
-	}()
-
-	return <-tokenChan, nil
+	return token, nil
 }
 
 // Sends a two-factor authentication code to the user's email.
