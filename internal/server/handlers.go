@@ -7,7 +7,7 @@ import (
 )
 
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
-	info := map[string]string{"environment": "authenticationservice"}
+	info := map[string]string{"environment": "authentication service"}
 	resp := apiutils.NewRes(http.StatusOK, "service avaible", info)
 	resp.SendRes(w)
 }
