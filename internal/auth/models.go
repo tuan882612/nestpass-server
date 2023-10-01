@@ -98,6 +98,49 @@ func (ri *RegisterInput) Deserialize(data io.ReadCloser) error {
 	return nil
 }
 
+// Request data from the resend code endpoint.
+type ResendInput struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+func (ri *ResendInput) Deserialize(data io.ReadCloser) error {
+	// deserialize the data
+	if err := json.NewDecoder(data).Decode(&ri); err != nil {
+		log.Error().Str("location", "ResendInput.Deserialize").Msgf("failed to deserialize data: %v", err)
+		return err
+	}
+
+	// validate the input
+	if err := validator.New().Struct(ri); err != nil {
+		log.Error().Str("location", "ResendInput.Deserialize").Msgf("failed to validate input: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// Request data from the reset password endpoint.
+type ResetPswInput struct {
+	Token    string `json:"token" validate:"required"`
+	Password string `json:"password" validate:"required,min=16,max=32"`
+}
+
+func (rpi *ResetPswInput) Deserialize(data io.ReadCloser) error {
+	// deserialize the data
+	if err := json.NewDecoder(data).Decode(&rpi); err != nil {
+		log.Error().Str("location", "ResetPswInput.Deserialize").Msgf("failed to deserialize data: %v", err)
+		return err
+	}
+
+	// validate the input
+	if err := validator.New().Struct(rpi); err != nil {
+		log.Error().Str("location", "ResetPswInput.Deserialize").Msgf("failed to validate input: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 // DTO for RegisterInput to RegisterResp.
 type RegisterResp struct {
 	UserID uuid.UUID `json:"user_id"`

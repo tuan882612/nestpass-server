@@ -10,4 +10,8 @@ const (
 		UPDATE users
 		SET user_status = 'active'
 		WHERE user_id = $1`
+	UpdateUserPasswordQuery string = `
+		UPDATE users
+		SET password = $2
+		WHERE user_id = $1`
 )

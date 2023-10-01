@@ -80,6 +80,16 @@ func (r *Repository) UpdateUserStatus(ctx context.Context, userID uuid.UUID) err
 	return nil
 }
 
+// Updates the user's password.
+func (r *Repository) UpdateUserPassword(ctx context.Context, userID uuid.UUID, password string) error {
+	if _, err := r.db.Exec(ctx, UpdateUserPasswordQuery, userID, password); err != nil {
+		log.Error().Str("location", "UpdateUserPassword").Msgf("%v: failed to update user password: %v", userID, err)
+		return err
+	}
+
+	return nil
+}
+
 // Starts a new postgres transaction.
 func (r *Repository) startTx(ctx context.Context) (pgx.Tx, error) {
 	tx, err := r.db.Begin(ctx)
