@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-redis/redis"
 	"github.com/google/uuid"
@@ -32,6 +33,16 @@ func (r *Cache) GetTwofa(ctx context.Context, userID uuid.UUID) (*email.TwofaBod
 		return nil, err
 	}
 
+	// check if data is restricted
+	restricted, err := r.IsRestricted(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if restricted {
+		return nil, apiutils.NewErrForbidden("user is restricted")
+	}
+
 	tfaBody := &email.TwofaBody{}
 	if err := tfaBody.Deserialize(data); err != nil {
 		log.Error().Str("location", "GetTwofaCache").Msgf("%v: failed to deserialize twofa data: %v", userID, err)
@@ -39,6 +50,31 @@ func (r *Cache) GetTwofa(ctx context.Context, userID uuid.UUID) (*email.TwofaBod
 	}
 
 	return tfaBody, nil
+}
+
+// Checks if the user is restricted.
+func (r *Cache) IsRestricted(ctx context.Context, userID uuid.UUID) (bool, error) {
+	isRestricted, err := r.cache.Get(userID.String()).Result()
+	if err != nil && err != redis.Nil {
+		log.Error().Str("location", "IsRestrictedCache").Msgf("%v: failed to get restricted user: %v", userID, err)
+		return false, err
+	}
+
+	if isRestricted == "restricted" {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// Adds the user as restricted to the cache.
+func (r *Cache) AddRestricted(ctx context.Context, userID uuid.UUID) error {
+	if err := r.cache.Set(userID.String(), "restricted", 3*time.Hour).Err(); err != nil {
+		log.Error().Str("location", "AddRestrictedCache").Msgf("%v: failed to add restricted user: %v", userID, err)
+		return err
+	}
+
+	return nil
 }
 
 // Updates the user's twofa data.
