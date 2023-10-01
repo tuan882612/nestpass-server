@@ -28,7 +28,10 @@ func (h *Handler) ResendCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go h.twofaService.SendVerificationEmail(input.UserID, input.Email)
+	if err := h.twofaService.ResendCode(r.Context(), input.Email); err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
 
 	resp := apiutils.NewRes(http.StatusOK, "", nil)
 	resp.SendRes(w)
@@ -67,7 +70,7 @@ func (h *Handler) LoginVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authToken, err := h.twofaService.VerifyAuthToken(r.Context(), userID, tokenInput)
+	authToken, err := h.twofaService.VerifyAuthToken(r.Context(), userID, tokenInput.Token)
 	if err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
@@ -99,8 +102,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 // Handles the second register phase (verification)
 func (h *Handler) RegisterVerify(w http.ResponseWriter, r *http.Request) {
-	tokenInput := &email.TokenInput{}
-	if err := tokenInput.Deserialize(r.Body); err != nil {
+	input := &email.TokenInput{}
+	if err := input.Deserialize(r.Body); err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}
@@ -111,13 +114,57 @@ func (h *Handler) RegisterVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authToken, err := h.twofaService.RegisterVerify(r.Context(), userID, tokenInput)
+	authToken, err := h.twofaService.RegisterVerify(r.Context(), userID, input)
 	if err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}
 
 	resp := apiutils.NewRes(http.StatusCreated, "", nil)
+	resp.AddHeader(w, map[string]string{"Authorization": "Bearer " + authToken})
+	resp.SendRes(w)
+}
+
+// Handles the first reset password phase (sending the verification code)
+func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	email := &auth.ResendInput{}
+	if err := email.Deserialize(r.Body); err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+	
+	userID, err := h.twofaService.ResetPassword(r.Context(), email.Email)
+	if err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	resp := apiutils.NewRes(http.StatusOK, "", nil)
+	resp.AddHeader(w, map[string]string{"X-Uid": userID})
+	resp.SendRes(w)
+}
+
+// Handles the second reset password phase (verification)
+func (h *Handler) ResetPasswordVerify(w http.ResponseWriter, r *http.Request) {
+	input := &auth.ResetPswInput{}
+	if err := input.Deserialize(r.Body); err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	userID, err := helpers.GetUidHeader(r)
+	if err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	authToken, err := h.twofaService.ResetPasswordFinal(r.Context(), userID, input.Password)
+	if err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	resp := apiutils.NewRes(http.StatusOK, "", nil)
 	resp.AddHeader(w, map[string]string{"Authorization": "Bearer " + authToken})
 	resp.SendRes(w)
 }
