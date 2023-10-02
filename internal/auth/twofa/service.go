@@ -87,7 +87,7 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token s
 					log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to restrict user: %v", userID, err)
 					return
 				}
-		
+
 				log.Info().Msg("successfully restricted user")
 			}()
 

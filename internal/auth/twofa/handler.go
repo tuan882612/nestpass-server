@@ -132,7 +132,7 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}
-	
+
 	userID, err := h.twofaService.ResetPassword(r.Context(), email.Email)
 	if err != nil {
 		apiutils.HandleHttpErrors(w, err)
