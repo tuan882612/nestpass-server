@@ -50,14 +50,12 @@ func (s *Server) SetupRouter() error {
 	s.setupMiddleware()
 
 	// setting up handlers
-	// sfaHandler := singlefa.NewHandler(s.AuthDeps) // for development only
 	twofaHandler := twofa.NewHandler(s.AuthDeps)
 
 	// routing all api endpoints
 	s.Router.NotFound(NotFoundHandler)
 	s.Router.Route(s.ApiVersion, func(r chi.Router) {
 		r.Get("/health", HealthHandler)
-		// r.Route("/sfa", routes.SingleFA(sfaHandler)) // for development only
 		r.Route("/twofa", routes.TwoFA(twofaHandler, r))
 	})
 
