@@ -15,7 +15,7 @@ async function bootstrap() {
       {
         transport: Transport.GRPC,
         options: {
-          url: '0.0.0.0:' + process.env.PORT,
+          url: process.env.HOST + ':' + process.env.PORT,
           package: ['twofa'],
           protoPath: join(__dirname, '../src/twofa/twofa.proto'),
         },

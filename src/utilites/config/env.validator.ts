@@ -14,6 +14,7 @@ export default function ValidateEnv(): boolean {
     REDIS_URL: process.env.REDIS_URL,
     EMAIL_KEY: process.env.EMAIL_KEY,
     PORT: process.env.PORT,
+    HOST: process.env.HOST,
   };
 
   const emptyKeys: string[] = Object.keys(config).filter(

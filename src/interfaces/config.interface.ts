@@ -4,4 +4,5 @@ export type Config = {
   REDIS_URL: string;
   EMAIL_KEY: string;
   PORT: string;
+  HOST: string;
 };
