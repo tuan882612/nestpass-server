@@ -3,9 +3,8 @@ include .env
 
 # Variables
 BINARY_NAME := main
-DOCKER_PROJECT := nestpass-auth
+DOCKER_PROJECT := nestpass-resource
 BUILD_FLAGS ?= -v
-GRPC_MODULE ?= twofa
 
 OUTPUT_EXEC := ./bin/\$(BINARY_NAME)
 
@@ -48,10 +47,3 @@ run-tests:
 	@echo "Running tests..."
 	@go clean -testcache
 	@go test ./... -race -v
-
-proto:
-	@echo "Generating gRPC code..."
-	@protoc -I=internal/proto \
-	--go_out=internal/proto \
-	--go-grpc_out=internal/proto \
-	internal/proto/\$(GRPC_MODULE).proto
