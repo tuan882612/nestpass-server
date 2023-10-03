@@ -38,8 +38,8 @@ func New(cfg *config.Configuration) (*Server, error) {
 	return &Server{
 		Router:     chi.NewRouter(),
 		Cfg:        cfg,
-		ApiAddr:    cfg.Host + ":" + cfg.Port,
-		ApiVersion: "/api/" + cfg.ApiVersion,
+		ApiAddr:    cfg.Server.Host + ":" + cfg.Server.Port,
+		ApiVersion: "/api/" + cfg.Server.ApiVersion,
 		AuthDeps:   authDeps,
 	}, nil
 }

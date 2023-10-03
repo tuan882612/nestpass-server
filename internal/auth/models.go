@@ -28,7 +28,7 @@ type Dependencies struct {
 // Constructor for creating all dependencies for the base authentication service.
 func NewDependencies(cfg *config.Configuration) (*Dependencies, error) {
 	// initialize data access
-	databases, err := database.NewDataAccess(cfg.NumCpu, cfg.PgUrl, cfg.RedisUrl, cfg.RedisPsw)
+	databases, err := database.NewDataAccess(cfg.Database.PgURL, cfg.Database.RedisURL, cfg.Database.RedisPsw)
 	if err != nil {
 		return nil, err
 	}

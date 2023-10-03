@@ -20,7 +20,7 @@ func main() {
 	}
 
 	// initialize and validate new configuration instance
-	cfg := config.NewConfiguration()
+	cfg := config.New()
 
 	if err := cfg.Validate(); err != nil {
 		os.Exit(1)

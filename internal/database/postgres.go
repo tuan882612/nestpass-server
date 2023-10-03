@@ -8,10 +8,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func getPostgres(ctx context.Context, pgUrl string, numCpu int) (*pgxpool.Pool, error) {
+func getPostgres(ctx context.Context, pgUrl string) (*pgxpool.Pool, error) {
 	// check if postgres url or numCpu is empty
-	if pgUrl == "" || numCpu == 0 {
-		errMsg := "postgres url or numCpu is empty"
+	if pgUrl == "" {
+		errMsg := "postgres url is empty"
 		log.Error().Str("location", "getPostgres").Msg(errMsg)
 		return nil, errors.New(errMsg)
 	}
@@ -21,14 +21,14 @@ func getPostgres(ctx context.Context, pgUrl string, numCpu int) (*pgxpool.Pool, 
 	// parse and set postgres config
 	config, err := pgxpool.ParseConfig(pgUrl)
 	if err != nil {
-		log.Error().Str("location", "getPostgres").Msg(err.Error())
+		log.Error().Str("location", "getPostgres").Msgf("failed to parse postgres config: %v", err)
 		return nil, err
 	}
 
 	// connect to postgres database
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		log.Error().Str("location", "getPostgres").Msg(err.Error())
+		log.Error().Str("location", "getPostgres").Msgf("failed to connect to postgres: %v", err)
 		return nil, err
 	}
 

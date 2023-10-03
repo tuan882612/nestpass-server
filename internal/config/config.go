@@ -1,91 +1,40 @@
 package config
 
 import (
-	"errors"
-	"fmt"
-	"os"
-	"runtime"
-	"time"
-
+	"github.com/go-playground/validator/v10"
 	"github.com/rs/zerolog/log"
 )
 
 type Configuration struct {
-	Host       string
-	Port       string
-	GRPCPort   string
-	ApiVersion string
-	PgUrl      string
-	NumCpu     int
-	RedisUrl   string
-	RedisPsw   string
-	SignKey    string
-	Duration   time.Duration
+	Server   *ServerConfig
+	Database *DatabaseConfig
+	JWT      *JWTConfig
+	OAuth    *OAuthConfig
 }
 
-func NewConfiguration() *Configuration {
-	apiVersion := os.Getenv("API_VERSION")
-	port := os.Getenv("PORT")
-	host := os.Getenv("HOST")
-	grpcPort := os.Getenv("GRPC_PORT")
-	pgUrl := os.Getenv("PG_URL")
-	redisUrl := os.Getenv("REDIS_URL")
-	redisPsw := os.Getenv("REDIS_PSW")
-	singKey := os.Getenv("SIGN_KEY")
-	duration, err := time.ParseDuration(os.Getenv("TOKEN_DURATION"))
-	if err != nil {
-		duration = 12
-	}
-
+func New() *Configuration {
 	return &Configuration{
-		Host:       host,
-		Port:       port,
-		GRPCPort:   grpcPort,
-		ApiVersion: apiVersion,
-		PgUrl:      pgUrl,
-		NumCpu:     runtime.NumCPU(),
-		RedisUrl:   redisUrl,
-		RedisPsw:   redisPsw,
-		SignKey:    singKey,
-		Duration:   duration,
+		Server:   newServerConfig(),
+		Database: newDatabaseConfig(),
+		JWT:      newJWTConfig(),
+		OAuth:    newOauthConfig(),
 	}
 }
 
-func (s *Configuration) Validate() error {
-	// create a map of the config values
+func (c *Configuration) Validate() error {
 	configMap := map[string]interface{}{
-		"HOST":       s.Host,
-		"PORT":       s.Port,
-		"GRPC_PORT":  s.GRPCPort,
-		"ApiVersion": s.ApiVersion,
-		"PG_URL":     s.PgUrl,
-		"NUM_CPU":    s.NumCpu,
-		"REDIS_URL":  s.RedisUrl,
-		"REDIS_PSW":  s.RedisPsw,
-		"SIGN_KEY":   s.SignKey,
-		"DURATION":   s.Duration,
+		"Server":   c.Server,
+		"Database": c.Database,
+		"JWT":      c.JWT,
+		"OAuth":    c.OAuth,
 	}
 
-	// check if any of the config values are empty
-	emptyKeys := []string{}
-	for key, value := range configMap {
-		switch v := value.(type) {
-		case string:
-			if v == "" {
-				emptyKeys = append(emptyKeys, key)
-			}
-		case int, time.Duration:
-			if v == 0 {
-				emptyKeys = append(emptyKeys, key)
-			}
+	validator := validator.New()
+	for name, config := range configMap {
+		if err := validator.Struct(config); err != nil {
+			log.Error().Str("location", "Configuration.Validate").Msgf("failed to validate %s config: %v", name, err)
+			return err
 		}
-	}
-
-	// return an error if any of the config values are empty
-	if len(emptyKeys) > 0 {
-		errMsg := fmt.Sprintf("%v are required", emptyKeys)
-		log.Error().Str("location", "Validate").Msg(errMsg)
-		return errors.New(errMsg)
 	}
 
 	return nil

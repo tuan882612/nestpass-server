@@ -18,7 +18,7 @@ type Manager struct {
 
 // Constructor for the JWT manager.
 func NewManager(cfg *config.Configuration) *Manager {
-	return &Manager{secert: cfg.SignKey, duration: cfg.Duration}
+	return &Manager{secert: cfg.JWT.SignKey, duration: cfg.JWT.Duration}
 }
 
 // Generates a JWT token for the user.

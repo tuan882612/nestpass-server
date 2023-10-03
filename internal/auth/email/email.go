@@ -14,7 +14,7 @@ type Manager struct {
 // Used to initialize the email service client.
 func NewManger(cfg *config.Configuration) (*Manager, error) {
 	// initialize connection to grpc server
-	conn, err := proto.NewGRPCConn(cfg.Host + ":" + cfg.GRPCPort)
+	conn, err := proto.NewGRPCConn(cfg.Server.Host + ":" + cfg.Server.GRPCPort)
 	if err != nil {
 		return nil, err
 	}

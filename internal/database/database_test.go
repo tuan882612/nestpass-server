@@ -19,7 +19,7 @@ func TestMain(m *testing.M) {
 }
 
 func Test_NewPostgres(t *testing.T) {
-	pool, err := getPostgres(context.Background(), os.Getenv("PG_URL"), 2)
+	pool, err := getPostgres(context.Background(), os.Getenv("PG_URL"))
 	if err != nil {
 		t.Errorf("GetPostgres() error: %v", err)
 	}
@@ -30,7 +30,7 @@ func Test_NewPostgres(t *testing.T) {
 }
 
 func Test_EmptyParamsPostgres(t *testing.T) {
-	if _, err := getPostgres(context.Background(), "", 0); err == nil {
+	if _, err := getPostgres(context.Background(), ""); err == nil {
 		t.Errorf("GetPostgres() error: %v", err)
 	}
 

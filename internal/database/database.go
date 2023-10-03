@@ -13,8 +13,8 @@ type DataAccess struct {
 	Redis    *redis.Client
 }
 
-func NewDataAccess(nCpu int, pgUrl, rdUrl, rdPsw string) (*DataAccess, error) {
-	postgres, err := getPostgres(context.Background(), pgUrl, nCpu)
+func NewDataAccess(pgUrl, rdUrl, rdPsw string) (*DataAccess, error) {
+	postgres, err := getPostgres(context.Background(), pgUrl)
 	if err != nil {
 		return nil, err
 	}
