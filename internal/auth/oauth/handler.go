@@ -12,7 +12,12 @@ func NewHandler() *Handler {
 	return &Handler{}
 }
 
-func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Invoke(w http.ResponseWriter, r *http.Request) {
+	resp := apiutils.NewRes(http.StatusOK, "", nil)
+	resp.SendRes(w)
+}
+
+func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	resp := apiutils.NewRes(http.StatusOK, "", nil)
 	resp.SendRes(w)
 }
