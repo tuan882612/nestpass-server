@@ -52,7 +52,7 @@ func (s *Server) SetupRouter() error {
 
 	// setting up handlers
 	twofaHandler := twofa.NewHandler(s.AuthDeps)
-	oauthHandler := oauth.NewHandler()
+	oauthHandler := oauth.NewHandler(s.Cfg)
 
 	// routing all api endpoints
 	s.Router.NotFound(NotFoundHandler)

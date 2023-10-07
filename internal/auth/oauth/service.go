@@ -2,12 +2,15 @@ package oauth
 
 import (
 	"context"
+	"project/internal/config"
 )
 
-type Service struct{}
+type Service struct{
+	cfg *config.OAuthConfig
+}
 
-func NewService() *Service {
-	return &Service{}
+func NewService(oauthCfg *config.OAuthConfig) *Service {
+	return &Service{cfg: oauthCfg}
 }
 
 func (s *Service) StartOAuth(ctx context.Context) {
