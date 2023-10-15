@@ -2,6 +2,7 @@ package twofa
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,7 +19,6 @@ import (
 // Service for handling two-factor authentication.
 type Service struct {
 	authRepo     *auth.Repository // base auth repository
-	authService  *auth.Service    // base auth service
 	cacheRepo    *auth.Cache      // cache repository
 	jwtManager   *jwt.Manager
 	emailManager *email.Manager
@@ -28,14 +28,14 @@ type Service struct {
 func NewService(deps *auth.Dependencies) *Service {
 	return &Service{
 		authRepo:     deps.Repository,
-		authService:  deps.Service,
 		cacheRepo:    deps.Cache,
 		jwtManager:   deps.JWTManager,
 		emailManager: deps.EmailManager,
 	}
 }
 
-func (s *Service) SendVerificationEmail(ctx context.Context, userID uuid.UUID, email string) error {
+// Sends a two-factor authentication code to the user's email.
+func (s *Service) SendVerificationEmail(ctx context.Context, userID uuid.UUID, email, status string) error {
 	// check if data is restricted
 	restricted, err := s.cacheRepo.IsRestricted(ctx, userID)
 	if err != nil {
@@ -54,8 +54,9 @@ func (s *Service) SendVerificationEmail(ctx context.Context, userID uuid.UUID, e
 
 		// Make new payload with input email and user id
 		payload := &twofapb.TwoFAPayload{
-			UserId: userID.String(),
-			Email:  email,
+			UserId:     userID.String(),
+			Email:      email,
+			UserStatus: status,
 		}
 
 		// send the two-factor auth code to the user's email
@@ -65,8 +66,28 @@ func (s *Service) SendVerificationEmail(ctx context.Context, userID uuid.UUID, e
 			return
 		}
 
-		log.Info().Msg("successfully sent verification email")
+		log.Info().Msgf("%v: successfully sent verification email", userID)
 	}()
+
+	return nil
+}
+
+// resend twofa code
+func (s *Service) ResendCode(ctx context.Context, email string) error {
+	user, err := s.authRepo.GetUserCredentials(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	// check if the user is inactive
+	if user.UserStatus == auth.InactiveUser {
+		return apiutils.NewErrForbidden("user is inactive")
+	}
+
+	// send the two-factor auth code to the user's email in the background
+	if err := s.SendVerificationEmail(ctx, user.UserID, email, user.UserStatus); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -88,7 +109,7 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token s
 					return
 				}
 
-				log.Info().Msg("successfully restricted user")
+				log.Info().Msgf("%v: successfully restricted user", userID)
 			}()
 
 			return "", apiutils.NewErrUnauthorized("too many retries")
@@ -101,7 +122,7 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token s
 				return
 			}
 
-			log.Info().Msg("successfully updated twofa retries")
+			log.Info().Msgf("%v: successfully updated twofa retries", userID)
 		}()
 
 		return "", apiutils.NewErrUnauthorized("invalid code")
@@ -114,8 +135,25 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token s
 			return
 		}
 
-		log.Info().Msg("successfully deleted twofa cache")
+		log.Info().Msgf("%v: successfully deleted twofa cache", userID)
 	}()
+
+	fmt.Println(tfaBody)
+
+	// update the user's status in the background if the user is a non-registered user
+	if tfaBody.UserStatus == auth.NonRegUser {
+		go func() {
+			// new context with a timeout
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+
+			if err := s.authRepo.UpdateUserStatus(ctx, userID); err != nil {
+				return
+			}
+
+			log.Info().Msgf("%v: successfully updated user status", userID)
+		}()
+	}
 
 	// generate a JWT token
 	authToken, err := s.jwtManager.GenerateToken(userID)
@@ -127,21 +165,33 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token s
 	return authToken, nil
 }
 
-// Sends a two-factor authentication code to the user's email.
+// Initial twofa login
 func (s *Service) LoginSend(ctx context.Context, input *auth.LoginInput) (string, error) {
-	userID, err := s.authService.VerifyUser(ctx, input.Email, input.Password)
+	// retrieve the user credentials from the database
+	user, err := s.authRepo.GetUserCredentials(ctx, input.Email)
 	if err != nil {
 		return "", err
 	}
 
+	// validate the password
+	if err := securityutils.ValidatePassword(user.Password, input.Password); err != nil {
+		return "", apiutils.NewErrUnauthorized(err.Error())
+	}
+
+	// check if user is inactive
+	if user.UserStatus == auth.InactiveUser {
+		return "", apiutils.NewErrForbidden("user is inactive")
+	}
+
 	// send the two-factor auth code to the user's email in the background
-	if err := s.SendVerificationEmail(ctx, userID, input.Email); err != nil {
+	if err := s.SendVerificationEmail(ctx, user.UserID, input.Email, user.UserStatus); err != nil {
 		return "", err
 	}
 
-	return userID.String(), nil
+	return user.UserID.String(), nil
 }
 
+// Initial twofa register
 func (s *Service) RegisterSend(ctx context.Context, input *auth.RegisterInput) (string, error) {
 	// convert RegisterInput to RegisterResp and validate the input
 	regResp, err := auth.NewRegisterResp(input)
@@ -150,64 +200,62 @@ func (s *Service) RegisterSend(ctx context.Context, input *auth.RegisterInput) (
 	}
 
 	// register the user
-	if err := s.authService.RegisterUser(ctx, regResp); err != nil {
+	tx, err := s.authRepo.StartTx(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
+
+	// tries to add the user to the database
+	if err := s.authRepo.AddUser(ctx, tx, regResp); err != nil {
+		return "", err
+	}
+
+	// commit the transaction
+	if err := tx.Commit(ctx); err != nil {
+		log.Error().Str("location", "RegisterUser").Msgf("failed to commit transaction: %v", err)
 		return "", err
 	}
 
 	// send the two-factor auth code to the user's email in the background
-	if err := s.SendVerificationEmail(ctx, regResp.UserID, input.Email); err != nil {
+	if err := s.SendVerificationEmail(ctx, regResp.UserID, input.Email, regResp.UserStatus); err != nil {
 		return "", err
 	}
 
 	return regResp.UserID.String(), nil
 }
 
+// Final twofa register
 func (s *Service) RegisterVerify(ctx context.Context, userID uuid.UUID, input *email.TokenInput) (string, error) {
 	token, err := s.VerifyAuthToken(ctx, userID, input.Token)
 	if err != nil {
 		return "", err
 	}
 
-	// update the user's status in the background
-	go func() {
-		if err := s.authRepo.UpdateUserStatus(ctx, userID); err != nil {
-			log.Error().Str("location", "RegisterVerify").Msgf("%v: failed to update user status: %v", userID, err)
-		}
-
-		log.Info().Msgf("%v: successfully updated user status", userID)
-	}()
-
 	return token, nil
 }
 
-func (s *Service) ResendCode(ctx context.Context, email string) error {
-	userID, _, err := s.authRepo.GetUserCredentials(ctx, email)
-	if err != nil {
-		return err
-	}
-
-	// send the two-factor auth code to the user's email in the background
-	if err := s.SendVerificationEmail(ctx, userID, email); err != nil {
-		return err
-	}
-
-	return nil
-}
-
+// Initial twofa reset password
 func (s *Service) ResetPassword(ctx context.Context, email string) (string, error) {
-	userID, _, err := s.authRepo.GetUserCredentials(ctx, email)
+	user, err := s.authRepo.GetUserCredentials(ctx, email)
 	if err != nil {
 		return "", err
 	}
 
+	// check if the user is inactive
+	if user.UserStatus == auth.InactiveUser {
+		return "", apiutils.NewErrForbidden("user is inactive")
+	}
+
 	// send the two-factor auth code to the user's email in the background
-	if err := s.SendVerificationEmail(ctx, userID, userID.String()); err != nil {
+	if err := s.SendVerificationEmail(ctx, user.UserID, email, user.UserStatus); err != nil {
 		return "", err
 	}
 
-	return userID.String(), nil
+	return user.UserID.String(), nil
 }
 
+// Final twofa reset password
 func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, password string) (string, error) {
 	// verify the user's twofa code
 	token, err := s.VerifyAuthToken(ctx, userID, password)
