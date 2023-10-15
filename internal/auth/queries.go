@@ -1,7 +1,11 @@
 package auth
 
 const (
-	UserCredsQuery string = "SELECT user_id, password FROM users WHERE email = $1"
+	UserCredsQuery string = `
+		SELECT 
+			user_id, password, user_status 
+		FROM users 
+		WHERE email = $1`
 	AddUserQuery   string = `
 		INSERT INTO users 
 			(user_id, email, name, password, registered, user_status) 

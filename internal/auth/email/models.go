@@ -10,8 +10,9 @@ import (
 
 // Body for twofa data from redis.
 type TwofaBody struct {
-	Code    string `json:"code"`
-	Retries int    `json:"retries"`
+	Code       string
+	Retries    int
+	UserStatus string
 }
 
 // Deserialize the json data into the struct.

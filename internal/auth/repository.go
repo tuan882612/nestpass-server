@@ -25,23 +25,22 @@ func NewRepository(databases *database.DataAccess) *Repository {
 }
 
 // Retrieves the user's uuid and password from the database if the user exists.
-func (r *Repository) GetUserCredentials(ctx context.Context, email string) (uuid.UUID, string, error) {
+func (r *Repository) GetUserCredentials(ctx context.Context, email string) (*User, error) {
 	// initialize credential variables
-	var userID uuid.UUID
-	var password string
+	user := &User{}
 	row := r.db.QueryRow(ctx, UserCredsQuery, email)
 
 	// scan the row and check for errors
-	if err := row.Scan(&userID, &password); err != nil {
+	if err := row.Scan(&user.UserID, &user.Password, &user.UserStatus); err != nil {
 		if err == pgx.ErrNoRows {
-			return uuid.Nil, "", apiutils.NewErrNotFound("user not found")
+			return nil, apiutils.NewErrNotFound("user not found")
 		}
 
 		log.Error().Str("location", "GetUserCredentials").Msgf("failed to get user credentials: %v", err)
-		return uuid.Nil, "", err
+		return nil, err
 	}
 
-	return userID, password, nil
+	return user, nil
 }
 
 // Adds a new user to the database.
@@ -91,7 +90,7 @@ func (r *Repository) UpdateUserPassword(ctx context.Context, userID uuid.UUID, p
 }
 
 // Starts a new postgres transaction.
-func (r *Repository) startTx(ctx context.Context) (pgx.Tx, error) {
+func (r *Repository) StartTx(ctx context.Context) (pgx.Tx, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		log.Error().Str("location", "startTx").Msgf("failed to start transaction: %v", err)
