@@ -19,7 +19,6 @@ import (
 // Dependencies for the base authentication service.
 type Dependencies struct {
 	Repository   *Repository // base auth repository
-	Service      *Service    // base auth service
 	Cache        *Cache      // twofa cache repository
 	JWTManager   *jwt.Manager
 	EmailManager *email.Manager
@@ -41,17 +40,29 @@ func NewDependencies(cfg *config.Configuration) (*Dependencies, error) {
 		return nil, err
 	}
 
-	service := NewService(repo)
 	jwtManager := jwt.NewManager(cfg)
 
 	return &Dependencies{
 		Repository:   repo,
-		Service:      service,
 		Cache:        cache,
 		JWTManager:   jwtManager,
 		EmailManager: emailManager,
 	}, nil
 }
+
+// Base User retrieve model.
+type User struct {
+	UserID     uuid.UUID
+	Password   string
+	UserStatus string
+}
+
+// user statuses
+const (
+	NonRegUser = "nonreg"
+	ActiveUser = "active"
+	InactiveUser = "inactive"
+)
 
 // Request data from the login endpoint.
 type LoginInput struct {
