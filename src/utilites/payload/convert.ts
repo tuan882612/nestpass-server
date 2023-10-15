@@ -6,6 +6,7 @@ export function ToPayloadDTO(payload: Payload): PayloadDTO {
   const mapped: PayloadDTO = {
     user_id: payload.userId,
     email: payload.email,
+    user_status: payload.userStatus,
   };
 
   return mapped;

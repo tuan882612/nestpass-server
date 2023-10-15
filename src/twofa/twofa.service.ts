@@ -61,18 +61,18 @@ export class TwofaService implements OnModuleInit {
     payload: Payload,
     code: string,
   ): Promise<void> {
-    const key: string = payload.userId;
     const value: CachePayload = {
       Code: code,
       Retries: 5,
+      UserStatus: payload.userStatus,
     };
 
     // cache the verification code and set the expiry time.
     try {
       await this.redisClient
         .multi()
-        .set(key, JSON.stringify(value))
-        .expire(key, 180)
+        .set(payload.userId, JSON.stringify(value))
+        .expire(payload.userId, 180)
         .exec();
     } catch (error) {
       this.logger.error(error);

@@ -11,4 +11,5 @@ service TwoFAService {
 message Payload {
     string user_id = 1;
     string email = 2;
+    string user_status = 3;
 }

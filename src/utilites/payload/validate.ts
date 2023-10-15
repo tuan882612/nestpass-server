@@ -3,7 +3,7 @@ import { RpcException } from '@nestjs/microservices';
 import { Payload } from 'src/interfaces/payload.interface';
 
 export function ValidatePayload(payload: Payload) {
-  const ref: string[] = ['userId', 'email'];
+  const ref: string[] = ['userId', 'email', 'userStatus'];
 
   const missingKeys = ref.filter((key) => {
     return !payload[key];
