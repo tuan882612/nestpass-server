@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -46,21 +45,6 @@ type TokenInput struct {
 func (ti *TokenInput) Deserialize(data io.ReadCloser) error {
 	if err := json.NewDecoder(data).Decode(&ti); err != nil {
 		log.Err(err).Str("location", "TokenInput.Unmarshal()").Msg("failed to unmarshal json")
-		return err
-	}
-
-	return nil
-}
-
-type ResendInput struct {
-	Email  string    `json:"email"`
-	UserID uuid.UUID `json:"user_id"`
-}
-
-// Deserialize the json data into the struct.
-func (ri *ResendInput) Deserialize(data io.ReadCloser) error {
-	if err := json.NewDecoder(data).Decode(&ri); err != nil {
-		log.Err(err).Str("location", "ResendInput.Unmarshal()").Msg("failed to unmarshal json")
 		return err
 	}
 
