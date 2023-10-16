@@ -132,7 +132,6 @@ func (ri *ResendInput) Deserialize(data io.ReadCloser) error {
 
 // Request data from the reset password endpoint.
 type ResetPswInput struct {
-	Token    string `json:"token" validate:"required"`
 	Password string `json:"password" validate:"required,min=16,max=32"`
 }
 

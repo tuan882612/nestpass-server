@@ -22,7 +22,7 @@ func NewHandler(deps *auth.Dependencies) *Handler {
 
 // Handles the resend code request
 func (h *Handler) ResendCode(w http.ResponseWriter, r *http.Request) {
-	input := &email.ResendInput{}
+	input := &auth.ResendInput{}
 	if err := input.Deserialize(r.Body); err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
@@ -114,7 +114,7 @@ func (h *Handler) RegisterVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authToken, err := h.twofaService.RegisterVerify(r.Context(), userID, input)
+	authToken, err := h.twofaService.VerifyAuthToken(r.Context(), userID, input.Token)
 	if err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
@@ -146,6 +146,31 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 // Handles the second reset password phase (verification)
 func (h *Handler) ResetPasswordVerify(w http.ResponseWriter, r *http.Request) {
+	input := &email.TokenInput{}
+	if err := input.Deserialize(r.Body); err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	userID, err := helpers.GetUidHeader(r)
+	if err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	_, err = h.twofaService.VerifyAuthToken(r.Context(), userID, input.Token)
+	if err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	resp := apiutils.NewRes(http.StatusOK, "", nil)
+	resp.AddHeader(w, map[string]string{"X-Uid": userID.String()})
+	resp.SendRes(w)
+}
+
+// Handles the third reset password phase (final)
+func (h *Handler) ResetPasswordFinal(w http.ResponseWriter, r *http.Request) {
 	input := &auth.ResetPswInput{}
 	if err := input.Deserialize(r.Body); err != nil {
 		apiutils.HandleHttpErrors(w, err)
@@ -158,13 +183,11 @@ func (h *Handler) ResetPasswordVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authToken, err := h.twofaService.ResetPasswordFinal(r.Context(), userID, input.Password)
-	if err != nil {
+	if err := h.twofaService.ResetPasswordFinal(r.Context(), userID, input.Password); err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}
 
 	resp := apiutils.NewRes(http.StatusOK, "", nil)
-	resp.AddHeader(w, map[string]string{"Authorization": "Bearer " + authToken})
 	resp.SendRes(w)
 }

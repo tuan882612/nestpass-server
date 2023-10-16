@@ -2,7 +2,6 @@ package twofa
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -138,8 +137,6 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token s
 		log.Info().Msgf("%v: successfully deleted twofa cache", userID)
 	}()
 
-	fmt.Println(tfaBody)
-
 	// update the user's status in the background if the user is a non-registered user
 	if tfaBody.UserStatus == auth.NonRegUser {
 		go func() {
@@ -173,14 +170,14 @@ func (s *Service) LoginSend(ctx context.Context, input *auth.LoginInput) (string
 		return "", err
 	}
 
-	// validate the password
-	if err := securityutils.ValidatePassword(user.Password, input.Password); err != nil {
-		return "", apiutils.NewErrUnauthorized(err.Error())
-	}
-
 	// check if user is inactive
 	if user.UserStatus == auth.InactiveUser {
 		return "", apiutils.NewErrForbidden("user is inactive")
+	}
+
+	// validate the password
+	if err := securityutils.ValidatePassword(user.Password, input.Password); err != nil {
+		return "", apiutils.NewErrUnauthorized(err.Error())
 	}
 
 	// send the two-factor auth code to the user's email in the background
@@ -199,23 +196,28 @@ func (s *Service) RegisterSend(ctx context.Context, input *auth.RegisterInput) (
 		return "", err
 	}
 
-	// register the user
-	tx, err := s.authRepo.StartTx(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer tx.Rollback(ctx)
+	// register the user in the background
+	go func ()  {
+		tx, err := s.authRepo.StartTx(ctx)
+		if err != nil {
+			log.Error().Str("location", "RegisterUser").Msgf("%v: failed to start transaction: %v", regResp.UserID, err)
+			return
+		}
+		defer tx.Rollback(ctx)
 
-	// tries to add the user to the database
-	if err := s.authRepo.AddUser(ctx, tx, regResp); err != nil {
-		return "", err
-	}
+		// tries to add the user to the database
+		if err := s.authRepo.AddUser(ctx, tx, regResp); err != nil {
+			return
+		}
 
-	// commit the transaction
-	if err := tx.Commit(ctx); err != nil {
-		log.Error().Str("location", "RegisterUser").Msgf("failed to commit transaction: %v", err)
-		return "", err
-	}
+		// commit the transaction
+		if err := tx.Commit(ctx); err != nil {
+			log.Error().Str("location", "RegisterUser").Msgf("%v: failed to commit transaction: %v", regResp.UserID, err)
+			return
+		}
+
+		log.Info().Msgf("%v: successfully registered user", regResp.UserID)
+	}()
 
 	// send the two-factor auth code to the user's email in the background
 	if err := s.SendVerificationEmail(ctx, regResp.UserID, input.Email, regResp.UserStatus); err != nil {
@@ -223,16 +225,6 @@ func (s *Service) RegisterSend(ctx context.Context, input *auth.RegisterInput) (
 	}
 
 	return regResp.UserID.String(), nil
-}
-
-// Final twofa register
-func (s *Service) RegisterVerify(ctx context.Context, userID uuid.UUID, input *email.TokenInput) (string, error) {
-	token, err := s.VerifyAuthToken(ctx, userID, input.Token)
-	if err != nil {
-		return "", err
-	}
-
-	return token, nil
 }
 
 // Initial twofa reset password
@@ -256,24 +248,22 @@ func (s *Service) ResetPassword(ctx context.Context, email string) (string, erro
 }
 
 // Final twofa reset password
-func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, password string) (string, error) {
-	// verify the user's twofa code
-	token, err := s.VerifyAuthToken(ctx, userID, password)
-	if err != nil {
-		return "", err
-	}
-
+func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, password string) error {
 	// hash the new password
 	hashedPassword, err := securityutils.HashPassword(password)
 	if err != nil {
 		log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to hash password: %v", userID, err)
-		return "", err
+		return err
 	}
 
-	// update the user's password
-	if err := s.authRepo.UpdateUserPassword(ctx, userID, hashedPassword); err != nil {
-		return "", err
-	}
+	// update the user's password in the background
+	go func() {
+		if err := s.authRepo.UpdateUserPassword(ctx, userID, hashedPassword); err != nil {
+			return
+		}
 
-	return token, nil
+		log.Info().Msgf("%v: successfully updated user password", userID)
+	}()
+
+	return nil
 }
