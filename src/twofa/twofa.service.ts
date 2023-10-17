@@ -61,6 +61,7 @@ export class TwofaService implements OnModuleInit {
     payload: Payload,
     code: string,
   ): Promise<void> {
+    const key: string = 'twofa:' + payload.userId;
     const value: CachePayload = {
       Code: code,
       Retries: 5,
@@ -71,8 +72,8 @@ export class TwofaService implements OnModuleInit {
     try {
       await this.redisClient
         .multi()
-        .set(payload.userId, JSON.stringify(value))
-        .expire(payload.userId, 180)
+        .set(key, JSON.stringify(value))
+        .expire(key, 180)
         .exec();
     } catch (error) {
       this.logger.error(error);
