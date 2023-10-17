@@ -36,13 +36,8 @@ func NewService(deps *auth.Dependencies) *Service {
 // Sends a two-factor authentication code to the user's email.
 func (s *Service) SendVerificationEmail(ctx context.Context, userID uuid.UUID, email, status string) error {
 	// check if data is restricted
-	restricted, err := s.cacheRepo.IsRestricted(ctx, userID)
-	if err != nil {
+	if err := s.cacheRepo.GetRestricted(ctx, userID); err != nil {
 		return err
-	}
-
-	if restricted {
-		return apiutils.NewErrForbidden("user is restricted")
 	}
 
 	// send request to email service to generate a two-factor auth code
@@ -197,7 +192,7 @@ func (s *Service) RegisterSend(ctx context.Context, input *auth.RegisterInput) (
 	}
 
 	// register the user in the background
-	go func ()  {
+	go func() {
 		tx, err := s.authRepo.StartTx(ctx)
 		if err != nil {
 			log.Error().Str("location", "RegisterUser").Msgf("%v: failed to start transaction: %v", regResp.UserID, err)
@@ -247,17 +242,41 @@ func (s *Service) ResetPassword(ctx context.Context, email string) (string, erro
 	return user.UserID.String(), nil
 }
 
+// Verify twofa code
+func (s *Service) VerifyCode(ctx context.Context, userID uuid.UUID, token string) error {
+	// verify the two-factor auth code 
+	if _, err := s.VerifyAuthToken(ctx, userID, token); err != nil {
+		return err
+	}
+
+	// creates 30 minute session on successful verification in the background
+	go func() {
+		if err := s.cacheRepo.AddSession(ctx, userID); err != nil {
+			return
+		}
+
+		log.Info().Msgf("%v: successfully added 30 session", userID)
+	}()
+
+	return nil
+}
+
 // Final twofa reset password
 func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, password string) error {
-	// hash the new password
-	hashedPassword, err := securityutils.HashPassword(password)
-	if err != nil {
-		log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to hash password: %v", userID, err)
+	// checks if the user has a 30 minute session
+	if err := s.cacheRepo.GetSession(ctx, userID); err != nil {
 		return err
 	}
 
 	// update the user's password in the background
 	go func() {
+		// hash the new password
+		hashedPassword, err := securityutils.HashPassword(password)
+		if err != nil {
+			log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to hash password: %v", userID, err)
+			return
+		}
+
 		if err := s.authRepo.UpdateUserPassword(ctx, userID, hashedPassword); err != nil {
 			return
 		}
