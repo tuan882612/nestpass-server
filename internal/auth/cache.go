@@ -23,7 +23,8 @@ func NewCache(databases *database.DataAccess) *Cache {
 
 // Retrieves the user's twofa data.
 func (r *Cache) GetTwofa(ctx context.Context, userID uuid.UUID) (*email.TwofaBody, error) {
-	data, err := r.cache.Get(userID.String()).Result()
+	key := "twofa:" + userID.String()
+	data, err := r.cache.Get(key).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return nil, apiutils.NewErrNotFound("twofa not found")
@@ -34,12 +35,7 @@ func (r *Cache) GetTwofa(ctx context.Context, userID uuid.UUID) (*email.TwofaBod
 	}
 
 	// check if data is restricted
-	restricted, err := r.IsRestricted(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	if restricted {
+	if err := r.GetRestricted(ctx, userID); err != nil {
 		return nil, apiutils.NewErrForbidden("user is restricted")
 	}
 
@@ -53,24 +49,53 @@ func (r *Cache) GetTwofa(ctx context.Context, userID uuid.UUID) (*email.TwofaBod
 }
 
 // Checks if the user is restricted.
-func (r *Cache) IsRestricted(ctx context.Context, userID uuid.UUID) (bool, error) {
-	isRestricted, err := r.cache.Get(userID.String()).Result()
-	if err != nil && err != redis.Nil {
+func (r *Cache) GetRestricted(ctx context.Context, userID uuid.UUID) error {
+	key := "restricted:" + userID.String()
+	_, err := r.cache.Get(key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil
+		}
+		
 		log.Error().Str("location", "IsRestrictedCache").Msgf("%v: failed to get restricted user: %v", userID, err)
-		return false, err
+		return err
 	}
 
-	if isRestricted == "restricted" {
-		return true, nil
+	return apiutils.NewErrForbidden("user is restricted")
+}
+
+// Get the user's session.
+func (r *Cache) GetSession(ctx context.Context, userID uuid.UUID) error {
+	key := "session:" + userID.String()
+	_, err := r.cache.Get(key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return apiutils.NewErrUnauthorized("session expired")
+		}
+
+		log.Error().Str("location", "GetSessionCache").Msgf("%v: failed to get session: %v", userID, err)
+		return err
 	}
 
-	return false, nil
+	return nil
 }
 
 // Adds the user as restricted to the cache.
 func (r *Cache) AddRestricted(ctx context.Context, userID uuid.UUID) error {
-	if err := r.cache.Set(userID.String(), "restricted", 3*time.Hour).Err(); err != nil {
+	key := "restricted:" + userID.String()
+	if err := r.cache.Set(key, "restricted", 3*time.Hour).Err(); err != nil {
 		log.Error().Str("location", "AddRestrictedCache").Msgf("%v: failed to add restricted user: %v", userID, err)
+		return err
+	}
+
+	return nil
+}
+
+// Adds a 30 minute ttl session to the cache.
+func (r *Cache) AddSession(ctx context.Context, userID uuid.UUID) error {
+	key := "session:" + userID.String()
+	if err := r.cache.Set(key, "session", 30*time.Minute).Err(); err != nil {
+		log.Error().Str("location", "AddSessionCache").Msgf("%v: failed to add session: %v", userID, err)
 		return err
 	}
 
@@ -86,9 +111,9 @@ func (r *Cache) UpdateTwofa(ctx context.Context, userID uuid.UUID, body *email.T
 	}
 
 	// update the twofa data and set the ttl to the previous value
-	idStr := userID.String()
-	ttl := r.cache.TTL(idStr).Val()
-	if err := r.cache.Set(idStr, data, ttl).Err(); err != nil {
+	key := "twofa:" + userID.String()
+	ttl := r.cache.TTL(key).Val()
+	if err := r.cache.Set(key, data, ttl).Err(); err != nil {
 		log.Error().Str("location", "UpdateTwofaCache").Msgf("%v: failed to update twofa data: %v", userID, err)
 		return err
 	}
@@ -98,7 +123,8 @@ func (r *Cache) UpdateTwofa(ctx context.Context, userID uuid.UUID, body *email.T
 
 // Deletes the user's twofa data.
 func (r *Cache) DeleteTwofa(ctx context.Context, userID uuid.UUID) error {
-	if err := r.cache.Del(uuid.UUID.String(userID)).Err(); err != nil {
+	key := "twofa:" + userID.String()
+	if err := r.cache.Del(key).Err(); err != nil {
 		log.Error().Str("location", "DeleteTwofaCache").Msgf("%v: failed to delete twofa data: %v", userID, err)
 		return err
 	}
