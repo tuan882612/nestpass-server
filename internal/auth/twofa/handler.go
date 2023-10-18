@@ -51,14 +51,25 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authToken, err := h.twofaService.VerifyAuthToken(r.Context(), userID, tokenInput.Token)
+	mode := r.Header.Get("X-Mode")
+	if mode == "" {
+		resp := apiutils.NewRes(http.StatusBadRequest, "missing mode header", nil)
+		resp.SendRes(w)
+		return
+	}
+
+	data, err := h.twofaService.VerifyAuthToken(r.Context(), userID, tokenInput.Token, mode)
 	if err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}
 
 	resp := apiutils.NewRes(http.StatusOK, "", nil)
-	resp.AddHeader(w, map[string]string{"Authorization": "Bearer " + authToken})
+	if mode == "reset" {
+		resp.AddHeader(w, map[string]string{"X-Uid": data})
+	} else {
+		resp.AddHeader(w, map[string]string{"Authorization": "Bearer " + data})
+	}
 	resp.SendRes(w)
 }
 
@@ -116,30 +127,6 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	resp := apiutils.NewRes(http.StatusOK, "", nil)
 	resp.AddHeader(w, map[string]string{"X-Uid": userID})
-	resp.SendRes(w)
-}
-
-// Handles the second reset password phase (verification)
-func (h *Handler) ResetPasswordVerify(w http.ResponseWriter, r *http.Request) {
-	input := &email.TokenInput{}
-	if err := input.Deserialize(r.Body); err != nil {
-		apiutils.HandleHttpErrors(w, err)
-		return
-	}
-
-	userID, err := helpers.GetUidHeader(r)
-	if err != nil {
-		apiutils.HandleHttpErrors(w, err)
-		return
-	}
-	
-	if err = h.twofaService.VerifyCode(r.Context(), userID, input.Token); err != nil {
-		apiutils.HandleHttpErrors(w, err)
-		return
-	}
-
-	resp := apiutils.NewRes(http.StatusOK, "", nil)
-	resp.AddHeader(w, map[string]string{"X-Uid": userID.String()})
 	resp.SendRes(w)
 }
 

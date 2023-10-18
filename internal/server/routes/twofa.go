@@ -13,7 +13,6 @@ func TwoFA(handler *twofa.Handler, r chi.Router) func(r chi.Router) {
 		r.Post("/login", handler.Login)
 		r.Post("/register", handler.Register)
 		r.Post("/reset", handler.ResetPassword)
-		r.Post("/reset/verify", handler.ResetPasswordVerify)
-		r.Post("/reset/final", handler.ResetPasswordFinal)
+		r.Patch("/reset/final", handler.ResetPasswordFinal)
 	}
 }

@@ -131,3 +131,15 @@ func (r *Cache) DeleteTwofa(ctx context.Context, userID uuid.UUID) error {
 
 	return nil
 }
+
+// Deletes the user's session data.
+func (r *Cache) DeleteSession(ctx context.Context, userID uuid.UUID) error {
+	key := "session:" + userID.String()
+	if err := r.cache.Del(key).Err(); err != nil {
+		log.Error().Str("location", "DeleteTwofaCache").Msgf("%v: failed to delete twofa data: %v", userID, err)
+		return err
+	}
+
+	return nil
+}
+
