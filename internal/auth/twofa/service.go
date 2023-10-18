@@ -193,6 +193,10 @@ func (s *Service) RegisterSend(ctx context.Context, input *auth.RegisterInput) (
 
 	// register the user in the background
 	go func() {
+		// new context with a timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
 		tx, err := s.authRepo.StartTx(ctx)
 		if err != nil {
 			log.Error().Str("location", "RegisterUser").Msgf("%v: failed to start transaction: %v", regResp.UserID, err)
