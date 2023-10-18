@@ -103,20 +103,19 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 	var retriesErr error = nil
 	// check if the code is correct
 	if tfaBody.Code != token {
-		// decrement the retries and update the twofa data async
 		tfaBody.Retries -= 1
 
-		go func() {
-			if err := s.cacheRepo.UpdateTwofa(ctx, userID, tfaBody); err != nil {
-				log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to update twofa retries: %v", userID, err)
-				return
-			}
-
-			log.Info().Msgf("%v: successfully updated twofa retries", userID)
-		}()
-
-		// check if the user has any retries left
+		// check if the user has any retries left and update the twofa data async
 		if tfaBody.Retries != 0 {
+			go func() {
+				if err := s.cacheRepo.UpdateTwofa(ctx, userID, tfaBody); err != nil {
+					log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to update twofa retries: %v", userID, err)
+					return
+				}
+	
+				log.Info().Msgf("%v: successfully updated twofa retries", userID)
+			}()
+
 			return "", apiutils.NewErrUnauthorized("invalid code")
 		}
 
