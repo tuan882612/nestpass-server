@@ -225,7 +225,7 @@ func (s *Service) RegisterSend(ctx context.Context, input *auth.RegisterInput) (
 		return "", err
 	}
 
-	// register the user in the background
+	// start a transaction for registering the user
 	tx, err := s.authRepo.StartTx(ctx)
 	if err != nil {
 		log.Error().Str("location", "RegisterUser").Msgf("%v: failed to start transaction: %v", regResp.UserID, err)
@@ -233,7 +233,7 @@ func (s *Service) RegisterSend(ctx context.Context, input *auth.RegisterInput) (
 	}
 	defer tx.Rollback(ctx)
 
-	// tries to add the user to the database
+	// add the user to the database
 	if err := s.authRepo.AddUser(ctx, tx, regResp); err != nil {
 		return "", err
 	}
