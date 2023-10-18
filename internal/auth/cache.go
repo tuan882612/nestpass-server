@@ -82,13 +82,18 @@ func (r *Cache) GetData(ctx context.Context, userID uuid.UUID, mode CacheType) (
 		return nil, err
 	}
 
-	// check if user is restricted or session is expired
+	// check if session exists or if the user is not restricted
 	if err == redis.Nil {
 		if mode == Restricted {
 			return nil, nil
 		}
 
 		return nil, apiutils.NewErrUnauthorized("session expired")
+	}
+
+	// checks if the session is active.
+	if mode == Session {
+		return nil, nil
 	}
 
 	return nil, apiutils.NewErrForbidden("user is restricted")
