@@ -43,6 +43,25 @@ func (r *Repository) GetUserCredentials(ctx context.Context, email string) (*Use
 	return user, nil
 }
 
+// Retrieves the user's uuid and password from the database if the user exists.
+func (r *Repository) GetUserPassword(ctx context.Context, userID uuid.UUID) (string, error) {
+	// initialize credential variables
+	var password string
+	row := r.db.QueryRow(ctx, GetUserPasswordQuery, userID)
+
+	// scan the row and check for errors
+	if err := row.Scan(&password); err != nil {
+		if err == pgx.ErrNoRows {
+			return "", apiutils.NewErrNotFound("user not found")
+		}
+
+		log.Error().Str("location", "GetUserPassword").Msgf("failed to get user password: %v", err)
+		return "", err
+	}
+
+	return password, nil
+}
+
 // Adds a new user to the database.
 func (r *Repository) AddUser(ctx context.Context, tx pgx.Tx, input *RegisterResp) error {
 	_, err := tx.Exec(ctx, AddUserQuery,

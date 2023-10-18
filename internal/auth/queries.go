@@ -6,6 +6,10 @@ const (
 			user_id, password, user_status 
 		FROM users 
 		WHERE email = $1`
+	GetUserPasswordQuery string = `
+		SELECT password
+		FROM users
+		WHERE user_id = $1`
 	AddUserQuery   string = `
 		INSERT INTO users 
 			(user_id, email, name, password, registered, user_status) 
