@@ -2,6 +2,7 @@ package twofa
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,7 +37,7 @@ func NewService(deps *auth.Dependencies) *Service {
 // Sends a two-factor authentication code to the user's email.
 func (s *Service) SendVerificationEmail(ctx context.Context, userID uuid.UUID, email, status string) error {
 	// check if data is restricted
-	if err := s.cacheRepo.GetRestricted(ctx, userID); err != nil {
+	if _, err := s.cacheRepo.GetData(ctx, userID, auth.Restricted); err != nil {
 		return err
 	}
 
@@ -88,28 +89,23 @@ func (s *Service) ResendCode(ctx context.Context, email string) error {
 
 // Verifies the two-factor auth code and returns a JWT token if the verification is successful.
 func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, mode string) (string, error) {
-	tfaBody, err := s.cacheRepo.GetTwofa(ctx, userID)
+	data, err := s.cacheRepo.GetData(ctx, userID, auth.TwoFA)
 	if err != nil {
 		return "", err
 	}
 
+	// check if the data type is correct
+	tfaBody, ok := data.(*email.TwofaBody)
+	if !ok {
+		return "", errors.New("invalid twofa data")
+	}
+
+	var retriesErr error = nil
+	// check if the code is correct
 	if tfaBody.Code != token {
-		// check if the user has any retries left
-		if tfaBody.Retries -= 1; tfaBody.Retries == 0 {
-			// add the user as restricted async
-			go func() {
-				if err := s.cacheRepo.AddRestricted(ctx, userID); err != nil {
-					log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to restrict user: %v", userID, err)
-					return
-				}
+		// decrement the retries and update the twofa data async
+		tfaBody.Retries -= 1
 
-				log.Info().Msgf("%v: successfully restricted user", userID)
-			}()
-
-			return "", apiutils.NewErrUnauthorized("too many retries")
-		}
-
-		// update the twofa retries async
 		go func() {
 			if err := s.cacheRepo.UpdateTwofa(ctx, userID, tfaBody); err != nil {
 				log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to update twofa retries: %v", userID, err)
@@ -119,18 +115,38 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 			log.Info().Msgf("%v: successfully updated twofa retries", userID)
 		}()
 
-		return "", apiutils.NewErrUnauthorized("invalid code")
+		// check if the user has any retries left
+		if tfaBody.Retries != 0 {
+			return "", apiutils.NewErrUnauthorized("invalid code")
+		}
+
+		// add the user as restricted async
+		go func() {
+			if err := s.cacheRepo.AddRestricted(ctx, userID); err != nil {
+				log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to restrict user: %v", userID, err)
+				return
+			}
+
+			log.Info().Msgf("%v: successfully restricted user", userID)
+		}()
+
+		retriesErr = apiutils.NewErrUnauthorized("too many retries")
 	}
 
 	// delete the twofa data async
 	go func() {
-		if err := s.cacheRepo.DeleteTwofa(ctx, userID); err != nil {
+		if err := s.cacheRepo.DeleteData(ctx, userID, auth.TwoFA); err != nil {
 			log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to delete twofa cache: %v", userID, err)
 			return
 		}
 
 		log.Info().Msgf("%v: successfully deleted twofa cache", userID)
 	}()
+
+	// check if there was a retries error	
+	if retriesErr != nil {
+		return "", retriesErr
+	}
 
 	// update the user's status in the background if the user is a non-registered user
 	if tfaBody.UserStatus == auth.NonRegUser {
@@ -156,7 +172,7 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 
 			log.Info().Msgf("%v: successfully added 30 session", userID)
 		}()
-		
+
 		return userID.String(), nil
 	}
 
@@ -210,31 +226,23 @@ func (s *Service) RegisterSend(ctx context.Context, input *auth.RegisterInput) (
 	}
 
 	// register the user in the background
-	go func() {
-		// new context with a timeout
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
+	tx, err := s.authRepo.StartTx(ctx)
+	if err != nil {
+		log.Error().Str("location", "RegisterUser").Msgf("%v: failed to start transaction: %v", regResp.UserID, err)
+		return "", err
+	}
+	defer tx.Rollback(ctx)
 
-		tx, err := s.authRepo.StartTx(ctx)
-		if err != nil {
-			log.Error().Str("location", "RegisterUser").Msgf("%v: failed to start transaction: %v", regResp.UserID, err)
-			return
-		}
-		defer tx.Rollback(ctx)
+	// tries to add the user to the database
+	if err := s.authRepo.AddUser(ctx, tx, regResp); err != nil {
+		return "", err
+	}
 
-		// tries to add the user to the database
-		if err := s.authRepo.AddUser(ctx, tx, regResp); err != nil {
-			return
-		}
-
-		// commit the transaction
-		if err := tx.Commit(ctx); err != nil {
-			log.Error().Str("location", "RegisterUser").Msgf("%v: failed to commit transaction: %v", regResp.UserID, err)
-			return
-		}
-
-		log.Info().Msgf("%v: successfully registered user", regResp.UserID)
-	}()
+	// commit the transaction
+	if err := tx.Commit(ctx); err != nil {
+		log.Error().Str("location", "RegisterUser").Msgf("%v: failed to commit transaction: %v", regResp.UserID, err)
+		return "", err
+	}
 
 	// send the two-factor auth code to the user's email in the background
 	if err := s.SendVerificationEmail(ctx, regResp.UserID, input.Email, regResp.UserStatus); err != nil {
@@ -267,7 +275,7 @@ func (s *Service) ResetPassword(ctx context.Context, email string) (string, erro
 // Final twofa reset password
 func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, password string) error {
 	// checks if the user has a 30 minute session
-	if err := s.cacheRepo.GetSession(ctx, userID); err != nil {
+	if _, err := s.cacheRepo.GetData(ctx, userID, auth.Session); err != nil {
 		return err
 	}
 
@@ -283,6 +291,7 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 
 	// update the user's password in the background
 	go func() {
+		// new context with a timeout
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -302,10 +311,11 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 
 	// delete the 30 minute session in the background
 	go func() {
+		// new context with a timeout
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		if err := s.cacheRepo.DeleteSession(ctx, userID); err != nil {
+		if err := s.cacheRepo.DeleteData(ctx, userID, auth.Session); err != nil {
 			log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to delete session: %v", userID, err)
 			return
 		}
