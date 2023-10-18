@@ -274,6 +274,9 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 
 	// update the user's password in the background
 	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
 		// hash the new password
 		hashedPassword, err := securityutils.HashPassword(password)
 		if err != nil {
