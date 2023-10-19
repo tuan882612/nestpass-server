@@ -10,62 +10,51 @@ import (
 	"project/internal/config"
 )
 
+// Server contains components and properties for the server.
 type Server struct {
-	Router     *chi.Mux
-	ApiUrl     string
+	// server components
+	Router *chi.Mux
+	Cfg    *config.Configuration
+	// server properties
+	ApiAddr    string
 	ApiVersion string
-	Cfg        *config.Configuration
 }
 
-func NewServer() (*Server, error) {
+// Creates a new HTTP server along with initializing all needed dependencies.
+func New(cfg *config.Configuration) (*Server, error) {
 	log.Info().Msg("initializing server...")
 
-	// initialize and validate new configuration instance
-	cfg := config.NewConfiguration()
-
-	if err := cfg.Validate(); err != nil {
-		return nil, err
-	}
 
 	return &Server{
 		Router:     chi.NewRouter(),
-		ApiUrl:     cfg.HOST + ":" + cfg.PORT,
-		ApiVersion: cfg.API_VERSION,
 		Cfg:        cfg,
+		ApiAddr:    cfg.Host + ":" + cfg.Port,
+		ApiVersion: "/api/" + cfg.ApiVersion,
 	}, nil
 }
 
+// Setups all routes and middlewares.
 func (s *Server) SetupRouter() error {
-	log.Info().Msg("setting up router...")
-
+	log.Info().Msg("initializing " + s.ApiVersion + " api routes...")
 	s.setupMiddleware()
 
-	if err := s.setupRoutes(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Server) Run() {
-	log.Info().Msg("server is running on " + s.ApiUrl + "/api/" + s.ApiVersion)
-	http.ListenAndServe(s.ApiUrl, s.Router)
-}
-
-func (s *Server) setupRoutes() error {
-	log.Info().Msg("initializing " + s.ApiVersion + " api routes...")
-
 	// routing all api endpoints
-	s.Router.Get("/health", HealthHandler)
 	s.Router.NotFound(NotFoundHandler)
-	s.Router.Route("/api/"+s.ApiVersion, func(r chi.Router) {
-
+	s.Router.Route(s.ApiVersion, func(r chi.Router) {
+		r.Get("/health", HealthHandler)
 	})
 
 	return nil
 }
 
+// helper: setupMiddleware setups all middlewares.
 func (s *Server) setupMiddleware() {
 	s.Router.Use(middleware.Logger)
 
+}
+
+// Starts the HTTP server.
+func (s *Server) Run() {
+	log.Info().Msg("server is running on " + s.ApiAddr + s.ApiVersion)
+	http.ListenAndServe(s.ApiAddr, s.Router)
 }

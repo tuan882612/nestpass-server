@@ -1,12 +1,28 @@
 package config
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func Test_Config_Validate(t *testing.T) {
-	emptyConfig := NewConfiguration()
+	LoadEnv("../../.env")
 
-	err := emptyConfig.Validate()
-	if err == nil {
+	cfg := New()
+
+	if err := cfg.Validate(); err != nil {
 		t.Errorf("Error validating config: %v", err)
+	}
+}
+
+func Test_LoadDotEnv(t *testing.T) {
+	err := LoadEnv("../../.env")
+	if err != nil {
+		t.Errorf("Error loading .env file")
+	}
+
+	foo := os.Getenv("TEST")
+	if foo != "foo" {
+		t.Errorf("Error loading .env file")
 	}
 }

@@ -7,8 +7,8 @@ import (
 )
 
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
-	info := map[string]string{"status": "ok"}
-	resp := apiutils.NewRes(http.StatusOK, "", info)
+	info := map[string]string{"environment": "resource service"}
+	resp := apiutils.NewRes(http.StatusOK, "service avaible", info)
 	resp.SendRes(w)
 }
 
