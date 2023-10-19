@@ -31,7 +31,6 @@ func DecodeToken(token, signKey string) (*claims, error) {
 
 	// handle all possible errors from parsing the token
 	if err != nil {
-
 		if errors.Is(err, jwt.ErrTokenMalformed) {
 			return nil, apiutils.NewErrBadRequest(err.Error())
 		} else if errors.Is(err, jwt.ErrSignatureInvalid) {
