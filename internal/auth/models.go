@@ -9,46 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/tuan882612/apiutils/securityutils"
-
-	"project/internal/auth/email"
-	"project/internal/auth/jwt"
-	"project/internal/config"
-	"project/internal/database"
 )
-
-// Dependencies for the base authentication service.
-type Dependencies struct {
-	Repository   *Repository // base auth repository
-	Cache        *Cache      // twofa cache repository
-	JWTManager   *jwt.Manager
-	EmailManager *email.Manager
-}
-
-// Constructor for creating all dependencies for the base authentication service.
-func NewDependencies(cfg *config.Configuration) (*Dependencies, error) {
-	// initialize data access
-	databases, err := database.NewDataAccess(cfg.Database.PgURL, cfg.Database.RedisURL, cfg.Database.RedisPsw)
-	if err != nil {
-		return nil, err
-	}
-	repo := NewRepository(databases)
-	cache := NewCache(databases)
-
-	// initialize dependencies
-	emailManager, err := email.NewManger(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	jwtManager := jwt.NewManager(cfg)
-
-	return &Dependencies{
-		Repository:   repo,
-		Cache:        cache,
-		JWTManager:   jwtManager,
-		EmailManager: emailManager,
-	}, nil
-}
 
 // Base User retrieve model.
 type User struct {
@@ -59,8 +20,8 @@ type User struct {
 
 // user statuses
 const (
-	NonRegUser = "nonreg"
-	ActiveUser = "active"
+	NonRegUser   = "nonreg"
+	ActiveUser   = "active"
 	InactiveUser = "inactive"
 )
 
