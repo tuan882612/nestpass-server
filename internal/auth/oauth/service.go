@@ -127,7 +127,7 @@ func (s *Service) UserLoginSignup(ctx context.Context, token *oauth2.Token) (str
 					return
 				}
 
-				log.Info().Msgf("%v: successfully registered user", newUser.UserID)
+				log.Info().Msgf("%v: registered user", newUser.UserID)
 			}()
 
 			authToken, err := s.jwtManager.GenerateToken(newUser.UserID)

@@ -61,7 +61,7 @@ func (s *Service) SendVerificationEmail(ctx context.Context, userID uuid.UUID, e
 			return
 		}
 
-		log.Info().Msgf("%v: successfully sent verification email", userID)
+		log.Info().Msgf("%v: sent verification email", userID)
 	}()
 
 	return nil
@@ -112,8 +112,8 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 					log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to update twofa retries: %v", userID, err)
 					return
 				}
-	
-				log.Info().Msgf("%v: successfully updated twofa retries", userID)
+
+				log.Info().Msgf("%v: updated twofa retries", userID)
 			}()
 
 			return "", apiutils.NewErrUnauthorized("invalid code")
@@ -126,7 +126,7 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 				return
 			}
 
-			log.Info().Msgf("%v: successfully restricted user", userID)
+			log.Info().Msgf("%v: restricted user", userID)
 		}()
 
 		retriesErr = apiutils.NewErrUnauthorized("too many retries")
@@ -139,10 +139,10 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 			return
 		}
 
-		log.Info().Msgf("%v: successfully deleted twofa cache", userID)
+		log.Info().Msgf("%v: deleted twofa cache", userID)
 	}()
 
-	// check if there was a retries error	
+	// check if there was a retries error
 	if retriesErr != nil {
 		return "", retriesErr
 	}
@@ -158,7 +158,7 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 				return
 			}
 
-			log.Info().Msgf("%v: successfully updated user status", userID)
+			log.Info().Msgf("%v: updated user status", userID)
 		}()
 	}
 
@@ -169,7 +169,7 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 				return
 			}
 
-			log.Info().Msgf("%v: successfully added 30 session", userID)
+			log.Info().Msgf("%v: added 30 session", userID)
 		}()
 
 		return userID.String(), nil
@@ -305,7 +305,7 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 			return
 		}
 
-		log.Info().Msgf("%v: successfully updated user password", userID)
+		log.Info().Msgf("%v: updated user password", userID)
 	}()
 
 	// delete the 30 minute session in the background
@@ -319,7 +319,7 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 			return
 		}
 
-		log.Info().Msgf("%v: successfully deleted session", userID)
+		log.Info().Msgf("%v: deleted session", userID)
 	}()
 
 	return nil
