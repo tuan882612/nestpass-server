@@ -32,5 +32,11 @@ func getPostgres(ctx context.Context, pgUrl string) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
+	// ping postgres database to check if connection is alive
+	if err := pool.Ping(ctx); err != nil {
+		log.Error().Str("location", "getPostgres").Msgf("failed to ping postgres: %v", err)
+		return nil, err
+	}
+
 	return pool, nil
 }
