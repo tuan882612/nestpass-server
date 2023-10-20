@@ -66,11 +66,11 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:    "Authorization",
-		Value:   "Bearer " + authToken,
-		Expires: time.Now().Add(12 * time.Hour),
-		Path:   "/",
-		Secure: true,
+		Name:     "session",
+		Value:    authToken,
+		Expires:  time.Now().Add(12 * time.Hour),
+		Path:     "/",
+		Secure:   true,
 		HttpOnly: true,
 	})
 

@@ -2,6 +2,7 @@ package twofa
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/tuan882612/apiutils"
 
@@ -68,7 +69,14 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 	if mode == "reset" {
 		resp.AddHeader(w, map[string]string{"X-Uid": data})
 	} else {
-		resp.AddHeader(w, map[string]string{"Authorization": "Bearer " + data})
+		http.SetCookie(w, &http.Cookie{
+			Name:     "session",
+			Value:    data,
+			Expires:  time.Now().Add(12 * time.Hour),
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   true,
+		})
 	}
 	resp.SendRes(w)
 }
