@@ -63,7 +63,7 @@ func (r *Cache) GetData(ctx context.Context, userID uuid.UUID, mode CacheType) (
 		}
 
 		// deserialize the data into a twofa body
-		tfaBody := &email.TwofaBody{}
+		tfaBody := &email.Twofa{}
 		if err := tfaBody.Deserialize(data); err != nil {
 			log.Error().Str("location", "GetData.TwoFA").Msgf("%v: failed to deserialize twofa data: %v", userID, err)
 			return nil, err
@@ -130,7 +130,7 @@ func (r *Cache) AddSession(ctx context.Context, userID uuid.UUID) error {
 }
 
 // Updates the user's twofa data.
-func (r *Cache) UpdateTwofa(ctx context.Context, userID uuid.UUID, body *email.TwofaBody) error {
+func (r *Cache) UpdateTwofa(ctx context.Context, userID uuid.UUID, body *email.Twofa) error {
 	data, err := body.Serialize()
 	if err != nil {
 		log.Error().Str("location", "UpdateTwofaCache").Msgf("%v: failed to serialize twofa data: %v", userID, err)

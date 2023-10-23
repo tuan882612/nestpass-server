@@ -26,21 +26,21 @@ const (
 )
 
 // Request data from the login endpoint.
-type LoginInput struct {
+type Login struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,max=32"`
 }
 
-func (li *LoginInput) Deserialize(data io.ReadCloser) error {
+func (li *Login) Deserialize(data io.ReadCloser) error {
 	// deserialize the data
 	if err := json.NewDecoder(data).Decode(&li); err != nil {
-		log.Error().Str("location", "LoginInput.Deserialize").Msgf("failed to deserialize data: %v", err)
+		log.Error().Str("location", "Login.Deserialize").Msgf("failed to deserialize data: %v", err)
 		return err
 	}
 
 	// validate the input
 	if err := validator.New().Struct(li); err != nil {
-		log.Error().Str("location", "LoginInput.Deserialize").Msgf("failed to validate input: %v", err)
+		log.Error().Str("location", "Login.Deserialize").Msgf("failed to validate input: %v", err)
 		return err
 	}
 
@@ -48,22 +48,22 @@ func (li *LoginInput) Deserialize(data io.ReadCloser) error {
 }
 
 // Request data from the register endpoint.
-type RegisterInput struct {
+type Register struct {
 	Email    string `json:"email" validate:"required,email"`
 	Name     string `json:"name" validate:"required"`
 	Password string `json:"password" validate:"required,min=16,max=32"`
 }
 
-func (ri *RegisterInput) Deserialize(data io.ReadCloser) error {
+func (ri *Register) Deserialize(data io.ReadCloser) error {
 	// deserialize the data
 	if err := json.NewDecoder(data).Decode(&ri); err != nil {
-		log.Error().Str("location", "RegisterInput.Deserialize").Msgf("failed to deserialize data: %v", err)
+		log.Error().Str("location", "Register.Deserialize").Msgf("failed to deserialize data: %v", err)
 		return err
 	}
 
 	// validate the input
 	if err := validator.New().Struct(ri); err != nil {
-		log.Error().Str("location", "RegisterInput.Deserialize").Msgf("failed to validate input: %v", err)
+		log.Error().Str("location", "Register.Deserialize").Msgf("failed to validate input: %v", err)
 		return err
 	}
 
@@ -71,20 +71,20 @@ func (ri *RegisterInput) Deserialize(data io.ReadCloser) error {
 }
 
 // Request data from the resend code endpoint.
-type ResendInput struct {
+type Resend struct {
 	Email string `json:"email" validate:"required,email"`
 }
 
-func (ri *ResendInput) Deserialize(data io.ReadCloser) error {
+func (ri *Resend) Deserialize(data io.ReadCloser) error {
 	// deserialize the data
 	if err := json.NewDecoder(data).Decode(&ri); err != nil {
-		log.Error().Str("location", "ResendInput.Deserialize").Msgf("failed to deserialize data: %v", err)
+		log.Error().Str("location", "Resend.Deserialize").Msgf("failed to deserialize data: %v", err)
 		return err
 	}
 
 	// validate the input
 	if err := validator.New().Struct(ri); err != nil {
-		log.Error().Str("location", "ResendInput.Deserialize").Msgf("failed to validate input: %v", err)
+		log.Error().Str("location", "Resend.Deserialize").Msgf("failed to validate input: %v", err)
 		return err
 	}
 
@@ -92,36 +92,36 @@ func (ri *ResendInput) Deserialize(data io.ReadCloser) error {
 }
 
 // Request data from the reset password endpoint.
-type ResetPswInput struct {
+type ResetPsw struct {
 	Password string `json:"password" validate:"required,min=16,max=32"`
 }
 
-func (rpi *ResetPswInput) Deserialize(data io.ReadCloser) error {
+func (rpi *ResetPsw) Deserialize(data io.ReadCloser) error {
 	// deserialize the data
 	if err := json.NewDecoder(data).Decode(&rpi); err != nil {
-		log.Error().Str("location", "ResetPswInput.Deserialize").Msgf("failed to deserialize data: %v", err)
+		log.Error().Str("location", "ResetPsw.Deserialize").Msgf("failed to deserialize data: %v", err)
 		return err
 	}
 
 	// validate the input
 	if err := validator.New().Struct(rpi); err != nil {
-		log.Error().Str("location", "ResetPswInput.Deserialize").Msgf("failed to validate input: %v", err)
+		log.Error().Str("location", "ResetPsw.Deserialize").Msgf("failed to validate input: %v", err)
 		return err
 	}
 
 	return nil
 }
 
-// DTO for RegisterInput to RegisterResp.
+// DTO for Register to RegisterResp.
 type RegisterResp struct {
 	UserID uuid.UUID `json:"user_id"`
-	RegisterInput
+	Register
 	Registered time.Time `json:"registered"`
 	UserStatus string    `json:"user_status"`
 }
 
 // Creates a new RegisterResp from the given input and validates it.
-func NewRegisterResp(input *RegisterInput) (*RegisterResp, error) {
+func NewRegisterResp(input *Register) (*RegisterResp, error) {
 	// validate the input
 	if err := validator.New().Struct(input); err != nil {
 		log.Error().Str("location", "NewRegisterResp").Msgf("failed to validate input: %v", err)
@@ -137,10 +137,10 @@ func NewRegisterResp(input *RegisterInput) (*RegisterResp, error) {
 
 	// create the new RegisterResp and assign the hashed password
 	res := &RegisterResp{
-		UserID:        uuid.New(),
-		RegisterInput: *input,
-		Registered:    time.Now(),
-		UserStatus:    "nonreg",
+		UserID:     uuid.New(),
+		Register:   *input,
+		Registered: time.Now(),
+		UserStatus: "nonreg",
 	}
 	res.Password = hashedPsw
 	return res, nil

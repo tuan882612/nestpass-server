@@ -95,7 +95,7 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 	}
 
 	// check if the data type is correct
-	tfaBody, ok := data.(*email.TwofaBody)
+	tfaBody, ok := data.(*email.Twofa)
 	if !ok {
 		return "", errors.New("invalid twofa data")
 	}
@@ -186,7 +186,7 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 }
 
 // Initial twofa login
-func (s *Service) LoginSend(ctx context.Context, input *auth.LoginInput) (string, error) {
+func (s *Service) LoginSend(ctx context.Context, input *auth.Login) (string, error) {
 	// retrieve the user credentials from the database
 	user, err := s.authRepo.GetUserCredentials(ctx, input.Email)
 	if err != nil {
@@ -217,8 +217,8 @@ func (s *Service) LoginSend(ctx context.Context, input *auth.LoginInput) (string
 }
 
 // Initial twofa register
-func (s *Service) RegisterSend(ctx context.Context, input *auth.RegisterInput) (string, error) {
-	// convert RegisterInput to RegisterResp and validate the input
+func (s *Service) RegisterSend(ctx context.Context, input *auth.Register) (string, error) {
+	// convert Register to RegisterResp and validate the input
 	regResp, err := auth.NewRegisterResp(input)
 	if err != nil {
 		return "", err

@@ -23,7 +23,7 @@ func NewHandler(deps *auth.Dependencies) *Handler {
 
 // Handles the resend code request
 func (h *Handler) ResendCode(w http.ResponseWriter, r *http.Request) {
-	input := &auth.ResendInput{}
+	input := &auth.Resend{}
 	if err := input.Deserialize(r.Body); err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
@@ -40,8 +40,8 @@ func (h *Handler) ResendCode(w http.ResponseWriter, r *http.Request) {
 
 // Handles the auth code verifcation
 func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
-	tokenInput := &email.TokenInput{}
-	if err := tokenInput.Deserialize(r.Body); err != nil {
+	Token := &email.Token{}
+	if err := Token.Deserialize(r.Body); err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}
@@ -59,7 +59,7 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := h.twofaService.VerifyAuthToken(r.Context(), userID, tokenInput.Token, mode)
+	data, err := h.twofaService.VerifyAuthToken(r.Context(), userID, Token.Token, mode)
 	if err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
@@ -83,7 +83,7 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 
 // Handles the initial login phase (sending the verification code)
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	input := &auth.LoginInput{}
+	input := &auth.Login{}
 	if err := input.Deserialize(r.Body); err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
@@ -102,7 +102,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 // Handles the initial register phase (sending the verification code)
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
-	input := &auth.RegisterInput{}
+	input := &auth.Register{}
 	if err := input.Deserialize(r.Body); err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
@@ -121,7 +121,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 // Handles the first reset password phase (sending the verification code)
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
-	email := &auth.ResendInput{}
+	email := &auth.Resend{}
 	if err := email.Deserialize(r.Body); err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
@@ -140,7 +140,7 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 // Handles the third reset password phase (final)
 func (h *Handler) ResetPasswordFinal(w http.ResponseWriter, r *http.Request) {
-	input := &auth.ResetPswInput{}
+	input := &auth.ResetPsw{}
 	if err := input.Deserialize(r.Body); err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return

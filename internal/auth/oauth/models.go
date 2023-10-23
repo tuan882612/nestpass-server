@@ -16,7 +16,7 @@ type OAuthData struct {
 func (u *OAuthData) NewUser() *auth.RegisterResp {
 	return &auth.RegisterResp{
 		UserID: uuid.New(),
-		RegisterInput: auth.RegisterInput{
+		Register: auth.Register{
 			Email:    u.Email,
 			Name:     u.Name,
 			Password: "",
