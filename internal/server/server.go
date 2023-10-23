@@ -7,8 +7,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog/log"
 
-	"project/internal/config"
-	"project/internal/server/routes"
+	"nestpass/internal/config"
+	"nestpass/internal/dependencies"
+	"nestpass/internal/server/routes"
 )
 
 // Server contains components and properties for the server.
@@ -19,17 +20,26 @@ type Server struct {
 	// server properties
 	ApiAddr    string
 	ApiVersion string
+	// dependencies
+	Deps *dependencies.Dependencies
 }
 
 // Creates a new HTTP server along with initializing all needed dependencies.
 func New(cfg *config.Configuration) (*Server, error) {
 	log.Info().Msg("initializing server...")
 
+	// initialize dependencies
+	deps, err := dependencies.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Server{
 		Router:     chi.NewRouter(),
 		Cfg:        cfg,
 		ApiAddr:    cfg.Host + ":" + cfg.Port,
 		ApiVersion: "/api/" + cfg.ApiVersion,
+		Deps:       deps,
 	}, nil
 }
 
@@ -42,7 +52,7 @@ func (s *Server) SetupRouter() error {
 	s.Router.NotFound(NotFoundHandler)
 	s.Router.Route(s.ApiVersion, func(r chi.Router) {
 		r.Get("/health", HealthHandler)
-		r.Route("/users", routes.Users(s.Cfg, r))
+		r.Route("/user", routes.Users(s.Deps, s.Cfg))
 	})
 
 	return nil
