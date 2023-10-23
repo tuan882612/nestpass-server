@@ -1,11 +1,11 @@
-package database
+package databases
 
 import (
 	"context"
 	"os"
 	"testing"
 
-	"project/internal/config"
+	"nestpass/internal/config"
 )
 
 func TestMain(m *testing.M) {
@@ -19,9 +19,9 @@ func TestMain(m *testing.M) {
 }
 
 func Test_NewPostgres(t *testing.T) {
-	pool, err := getPostgres(context.Background(), os.Getenv("PG_URL"), 2)
+	pool, err := NewPostgres(context.Background(), os.Getenv("PG_URL"))
 	if err != nil {
-		t.Errorf("GetPostgres() error: %v", err)
+		t.Errorf("NewPostgres() error: %v", err)
 	}
 
 	if _, err := pool.Exec(context.Background(), `SELECT 1`); err != nil {
@@ -30,19 +30,19 @@ func Test_NewPostgres(t *testing.T) {
 }
 
 func Test_EmptyParamsPostgres(t *testing.T) {
-	if _, err := getPostgres(context.Background(), "", 0); err == nil {
-		t.Errorf("GetPostgres() error: %v", err)
+	if _, err := NewPostgres(context.Background(), ""); err == nil {
+		t.Errorf("NewPostgres() error: %v", err)
 	}
 
-	if _, err := getRedis("", ""); err == nil {
-		t.Errorf("GetRedis() error: %v", err)
+	if _, err := NewRedis("", ""); err == nil {
+		t.Errorf("NewRedis() error: %v", err)
 	}
 }
 
 func Test_NewRedis(t *testing.T) {
-	conn, err := getRedis(os.Getenv("REDIS_URL"), os.Getenv("REDIS_PSW"))
+	conn, err := NewRedis(os.Getenv("REDIS_URL"), os.Getenv("REDIS_PSW"))
 	if err != nil {
-		t.Errorf("GetRedis() error: %v", err)
+		t.Errorf("NewRedis() error: %v", err)
 	}
 
 	if _, err := conn.Ping().Result(); err != nil {
@@ -51,7 +51,7 @@ func Test_NewRedis(t *testing.T) {
 }
 
 func Test_EmptyParamsRedis(t *testing.T) {
-	if _, err := getRedis("", ""); err == nil {
-		t.Errorf("GetRedis() error: %v", err)
+	if _, err := NewRedis("", ""); err == nil {
+		t.Errorf("NewRedis() error: %v", err)
 	}
 }

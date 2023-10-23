@@ -1,4 +1,4 @@
-package database
+package databases
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func getRedis(redisUrl, redisPsw string) (*redis.Client, error) {
+func NewRedis(redisUrl, redisPsw string) (*redis.Client, error) {
 	// check if redis url or password is empty
 	if redisUrl == "" || redisPsw == "" {
 		errMsg := "redis url or password is empty"
@@ -15,7 +15,7 @@ func getRedis(redisUrl, redisPsw string) (*redis.Client, error) {
 		return nil, errors.New(errMsg)
 	}
 
-	log.Info().Msg("connecting redis...")
+	log.Info().Msg("initializing redis connection...")
 
 	// connect to redis database
 	conn := redis.NewClient(&redis.Options{
@@ -25,8 +25,7 @@ func getRedis(redisUrl, redisPsw string) (*redis.Client, error) {
 	})
 
 	// check if redis is connected
-	_, err := conn.Ping().Result()
-	if err != nil {
+	if err := conn.Ping().Err(); err != nil {
 		log.Error().Str("location", "getRedis").Msg(err.Error())
 		return nil, err
 	}

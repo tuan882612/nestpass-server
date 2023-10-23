@@ -1,4 +1,4 @@
-package database
+package databases
 
 import (
 	"context"
@@ -8,15 +8,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func getPostgres(ctx context.Context, pgUrl string, numCpu int) (*pgxpool.Pool, error) {
+func NewPostgres(ctx context.Context, pgUrl string) (*pgxpool.Pool, error) {
 	// check if postgres url or numCpu is empty
-	if pgUrl == "" || numCpu == 0 {
+	if pgUrl == "" {
 		errMsg := "postgres url or numCpu is empty"
 		log.Error().Str("location", "getPostgres").Msg(errMsg)
 		return nil, errors.New(errMsg)
 	}
 
-	log.Info().Msg("connecting postgres...")
+	log.Info().Msg("initializing postgres connection...")
 
 	// parse and set postgres config
 	config, err := pgxpool.ParseConfig(pgUrl)
@@ -25,11 +25,15 @@ func getPostgres(ctx context.Context, pgUrl string, numCpu int) (*pgxpool.Pool, 
 		return nil, err
 	}
 
-	config.MinConns, config.MaxConns = int32(numCpu)/2, int32(numCpu)*4
-
 	// connect to postgres database
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
+		log.Error().Str("location", "getPostgres").Msg(err.Error())
+		return nil, err
+	}
+
+	// check if postgres is connected
+	if err := pool.Ping(ctx); err != nil {
 		log.Error().Str("location", "getPostgres").Msg(err.Error())
 		return nil, err
 	}
