@@ -6,8 +6,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"project/internal/config"
-	"project/internal/server"
+	"nestpass/internal/config"
+	"nestpass/internal/server"
 )
 
 func main() {
