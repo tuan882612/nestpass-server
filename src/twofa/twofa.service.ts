@@ -75,8 +75,9 @@ export class TwofaService implements OnModuleInit {
         .set(key, JSON.stringify(value))
         .expire(key, 180)
         .exec();
+      this.logger.log(payload.userId + `: cached twofa body`);
     } catch (error) {
-      this.logger.error(error);
+      this.logger.error(payload.userId + `: failed to cache twofa body`);
       throw new RpcException({ details: error.message, code: status.INTERNAL });
     }
   }

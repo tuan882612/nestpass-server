@@ -22,8 +22,6 @@ export class TwofaController {
   async generateTwoFACode(data: Payload): Promise<void> {
     ValidatePayload(data);
     await this.twofaService.sendVerifactionEmail(data);
-    this.logger.log(
-      data.userId + data.email + `: Verification email proccess successfully`,
-    );
+    this.logger.log(data.userId + `: verification email sent`);
   }
 }
