@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"io"
 	"time"
@@ -118,6 +119,7 @@ type RegisterResp struct {
 	Register
 	Registered time.Time `json:"registered"`
 	UserStatus string    `json:"user_status"`
+	Salt       []byte    `json:"salt"`
 }
 
 // Creates a new RegisterResp from the given input and validates it.
@@ -135,12 +137,19 @@ func NewRegisterResp(input *Register) (*RegisterResp, error) {
 		return nil, err
 	}
 
+	// generate a new salt
+	salt := make([]byte, 16)
+	if _, err := rand.Read(salt); err != nil {
+		return nil, err
+	}
+
 	// create the new RegisterResp and assign the hashed password
 	res := &RegisterResp{
 		UserID:     uuid.New(),
 		Register:   *input,
 		Registered: time.Now(),
 		UserStatus: "nonreg",
+		Salt:       salt,
 	}
 	res.Password = hashedPsw
 	return res, nil

@@ -71,6 +71,7 @@ func (r *Repository) AddUser(ctx context.Context, tx pgx.Tx, input *RegisterResp
 		&input.Password,
 		&input.Registered,
 		&input.UserStatus,
+		&input.Salt,
 	)
 
 	// checking for errors
