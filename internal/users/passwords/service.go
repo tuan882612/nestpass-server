@@ -2,7 +2,6 @@ package passwords
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
