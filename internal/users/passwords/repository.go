@@ -92,6 +92,28 @@ func (r *repository) GetAllPasswordsByCategory(
 	return passwords, nil
 }
 
+func (r *repository) GetAllPasswordsNonPaged(ctx context.Context, userID uuid.UUID) ([]*PasswordEncrypt, error) {
+	rows, err := r.postgres.Query(ctx, GetAllPasswordsNonPagedQuery, userID)
+	if err != nil {
+		log.Error().Str("location", "GetAllPasswordsNonPaged").Msgf("%v: %v", userID, err)
+		return nil, err
+	}
+
+	// retrieve passwords
+	passwords := []*PasswordEncrypt{}
+	for rows.Next() {
+		password := &PasswordEncrypt{}
+		if err := password.Scan(rows); err != nil {
+			log.Error().Str("location", "GetAllPasswordsNonPaged").Msgf("%v: %v", userID, err)
+			return nil, err
+		}
+
+		passwords = append(passwords, password)
+	}
+
+	return passwords, nil
+}
+
 func (r *repository) GetPassword(ctx context.Context, passwordID, categoryID, userID uuid.UUID) (*PasswordEncrypt, error) {
 	password := &PasswordEncrypt{}
 

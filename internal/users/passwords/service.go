@@ -26,7 +26,7 @@ func (s *service) GetKDFKey(ctx context.Context, userID uuid.UUID) ([]byte, erro
 	return KeyDerivation(kdfData.PswHash, userID.String(), kdfData.Salt), nil
 }
 
-func (s *service) DecryptAndGetPsw(password *PasswordEncrypt, userID uuid.UUID, key []byte) (*PasswordResp, error) {
+func (s *service) DecryptAndGetPsw(password *PasswordEncrypt, userID uuid.UUID, key []byte) (*Password, error) {
 	// decrypt rawData from encrypted
 	data, err := Decrypt(password.Nonce, password.Encrypted, key)
 	if err != nil {
@@ -35,11 +35,18 @@ func (s *service) DecryptAndGetPsw(password *PasswordEncrypt, userID uuid.UUID, 
 	}
 
 	// create Password
-	psw := NewPasswordResp(password.PasswordID, data, password.Website, userID, password.CategoryID)
-	return psw, nil
+	return &Password{
+		PasswordID:  password.PasswordID,
+		UserID:      password.UserID,
+		CategoryID:  password.CategoryID,
+		Website:     password.Website,
+		Username:    data.Username,
+		Password:    data.Password,
+		Description: data.Description,
+	}, nil
 }
 
-func (s *service) GetAllPasswords(ctx context.Context, userID uuid.UUID, pageParams *httputils.Pagination) ([]*PasswordResp, error) {
+func (s *service) GetAllPasswords(ctx context.Context, userID uuid.UUID, pageParams *httputils.Pagination) ([]*Password, error) {
 	// retrieve kdf key
 	key, err := s.GetKDFKey(ctx, userID)
 	if err != nil {
@@ -53,7 +60,7 @@ func (s *service) GetAllPasswords(ctx context.Context, userID uuid.UUID, pagePar
 	}
 
 	// decrypt passwords
-	decryptedPsw := []*PasswordResp{}
+	decryptedPsw := []*Password{}
 	for _, password := range passwords {
 		psw, err := s.DecryptAndGetPsw(password, userID, key)
 		if err != nil {
@@ -66,7 +73,7 @@ func (s *service) GetAllPasswords(ctx context.Context, userID uuid.UUID, pagePar
 	return decryptedPsw, nil
 }
 
-func (s *service) GetAllPasswordsByCategory(ctx context.Context, userID, categoryID uuid.UUID, pageParams *httputils.Pagination) ([]*PasswordResp, error) {
+func (s *service) GetAllPasswordsByCategory(ctx context.Context, userID, categoryID uuid.UUID, pageParams *httputils.Pagination) ([]*Password, error) {
 	// retrieve kdf key
 	key, err := s.GetKDFKey(ctx, userID)
 	if err != nil {
@@ -80,7 +87,7 @@ func (s *service) GetAllPasswordsByCategory(ctx context.Context, userID, categor
 	}
 
 	// decrypt passwords
-	decryptedPsw := []*PasswordResp{}
+	decryptedPsw := []*Password{}
 	for _, password := range passwords {
 		psw, err := s.DecryptAndGetPsw(password, userID, key)
 		if err != nil {
@@ -93,7 +100,7 @@ func (s *service) GetAllPasswordsByCategory(ctx context.Context, userID, categor
 	return decryptedPsw, nil
 }
 
-func (s *service) GetPassword(ctx context.Context, passwordID, categoryID, userID uuid.UUID) (*PasswordResp, error) {
+func (s *service) GetPassword(ctx context.Context, passwordID, categoryID, userID uuid.UUID) (*Password, error) {
 	// retrieve kdf key
 	key, err := s.GetKDFKey(ctx, userID)
 	if err != nil {
@@ -144,17 +151,16 @@ func (s *service) CreatePassword(ctx context.Context, psw *Password) error {
 	return nil
 }
 
-func (s *service) UpdatePassword(ctx context.Context, psw *PasswordResp) error {
+func (s *service) UpdatePassword(ctx context.Context, psw *Password) error {
 	key, err := s.GetKDFKey(ctx, psw.UserID)
 	if err != nil {
 		return err
 	}
 
-	data, err := NewPasswordEncrypt(&psw.Password, key)
+	data, err := NewPasswordEncrypt(psw, key)
 	if err != nil {
 		return err
 	}
-	// uuid is not being set properly
 
 	tx, err := s.repo.postgres.Begin(ctx)
 	if err != nil {
@@ -174,7 +180,9 @@ func (s *service) UpdatePassword(ctx context.Context, psw *PasswordResp) error {
 	return nil
 }
 
-func (s *service) ReUpdateAllPasswords() {}
+func (s *service) ReUpdateAllPasswords(ctx context.Context, userID uuid.UUID) error {
+	return nil
+}
 
 func (s *service) DeletePassword(ctx context.Context, userID, passwordID, categoryID uuid.UUID) error {
 	tx, err := s.repo.postgres.Begin(ctx)

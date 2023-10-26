@@ -36,7 +36,7 @@ func (h *Handler) GetAllPasswords(w http.ResponseWriter, r *http.Request) {
 		isGetCategory = false
 	}
 
-	var passwords []*PasswordResp
+	var passwords []*Password
 	if isGetCategory {
 		passwords, err = h.svc.GetAllPasswordsByCategory(r.Context(), userID, categoryID, pageParams)
 	} else {
@@ -104,7 +104,7 @@ func (h *Handler) CreatePassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
-	psw := &PasswordResp{}
+	psw := &Password{}
 	if err := psw.Deserialize(r.Body); err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return

@@ -7,6 +7,10 @@ const (
 		salt
 	FROM users WHERE user_id = $1`
 
+	GetAllPasswordsNonPagedQuery = `
+	SELECT * FROM passwords
+	WHERE user_id = $1`
+
 	GetAllPasswordsQuery = `
 	SELECT * FROM passwords
 	WHERE user_id = $1 AND password_id > $2

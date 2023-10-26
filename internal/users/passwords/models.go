@@ -66,8 +66,15 @@ func NewPasswordEncrypt(psw *Password, dKey []byte) (*PasswordEncrypt, error) {
 		return nil, err
 	}
 
-	return &PasswordEncrypt{
-		PasswordID: uuid.New(),
+	var passwordID uuid.UUID
+    if psw.PasswordID != uuid.Nil {
+        passwordID = psw.PasswordID
+    } else {
+        passwordID = uuid.New()
+    }
+
+    return &PasswordEncrypt{
+        PasswordID: passwordID,
 		UserID:     psw.UserID,
 		CategoryID: psw.CategoryID,
 		Website:    psw.Website,
@@ -77,6 +84,7 @@ func NewPasswordEncrypt(psw *Password, dKey []byte) (*PasswordEncrypt, error) {
 }
 
 type Password struct {
+	PasswordID  uuid.UUID `json:"password_id,omitempty"`
 	UserID      uuid.UUID `json:"user_id" validate:"required"`
 	CategoryID  uuid.UUID `json:"category_id" validate:"required"`
 	Website     string    `json:"website" validate:"required"`
@@ -107,24 +115,5 @@ func NewPassword(data *PswData, website string, userID, categoryID uuid.UUID) *P
 		Username:    data.Username,
 		Password:    data.Password,
 		Description: data.Description,
-	}
-}
-
-type PasswordResp struct {
-	PasswordID  uuid.UUID `json:"password_id"`
-	Password
-}
-
-func NewPasswordResp(passwordID uuid.UUID, data *PswData, website string, userID, categoryID uuid.UUID) *PasswordResp {
-	return &PasswordResp{
-		PasswordID: passwordID,
-		Password:   Password{
-			UserID:      userID,
-			CategoryID:  categoryID,
-			Website:     website,
-			Username:    data.Username,
-			Password:    data.Password,
-			Description: data.Description,
-		},
 	}
 }
