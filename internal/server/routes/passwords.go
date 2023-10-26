@@ -12,11 +12,11 @@ func Passwords(deps *dependencies.Dependencies) func(r chi.Router) {
 
 	return func(r chi.Router) {
 		r.Get("/", handler.GetAllPasswords)
-		r.Post("/", handler.CreatePassword)
-
-		r.Route("/{pid}", func(r chi.Router) {
+		
+		r.Route("/password", func(r chi.Router) {
 			r.Get("/", handler.GetPassword)
-			r.Put("/", handler.UpdatePassword)
+			r.Post("/", handler.CreatePassword)
+			r.Patch("/", handler.UpdatePassword)
 			r.Delete("/", handler.DeletePassword)
 		})
 	}
