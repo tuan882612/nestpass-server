@@ -12,14 +12,13 @@ func Categories(deps *dependencies.Dependencies) func(r chi.Router) {
 
 	return func(r chi.Router) {
 		r.Get("/", handler.GetAllCategories)
-		r.Post("/", handler.CreateCategory)
-
-		r.Route("/{cid}", func(r chi.Router) {
+		
+		r.Route("/category", func(r chi.Router) {
 			r.Get("/", handler.GetCategory)
-			r.Put("/", handler.UpdateCategory)
+			r.Post("/", handler.CreateCategory)
+			r.Patch("/", handler.UpdateCategory)
 			r.Delete("/", handler.DeleteCategory)
-
-			r.Route("/passwords", Passwords(deps))
 		})
+		r.Route("/passwords", Passwords(deps))
 	}
 }
