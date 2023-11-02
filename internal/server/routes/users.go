@@ -13,6 +13,8 @@ func Users(deps *dependencies.Dependencies, cfg *config.Configuration) func(r ch
 	userHandler := users.NewHandler(deps)
 
 	return func(r chi.Router) {
+		
+
 		r.Use(middlewares.Authorization(cfg))
 		r.Get("/", userHandler.GetUser)
 
