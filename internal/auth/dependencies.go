@@ -13,6 +13,7 @@ type Dependencies struct {
 	Cache        *Cache      // twofa cache repository
 	JWTManager   *jwt.Manager
 	EmailManager *email.Manager
+	ProdEnv      bool
 }
 
 // Constructor for creating all dependencies for the base authentication service.
@@ -38,5 +39,6 @@ func NewDependencies(cfg *config.Configuration) (*Dependencies, error) {
 		Cache:        cache,
 		JWTManager:   jwtManager,
 		EmailManager: emailManager,
+		ProdEnv:      cfg.Server.ProdEnv,
 	}, nil
 }
