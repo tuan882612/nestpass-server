@@ -129,6 +129,17 @@ func (r *Cache) AddSession(ctx context.Context, userID uuid.UUID) error {
 	return nil
 }
 
+// Adds reset key to the cache.
+func (r *Cache) AddResetKey(ctx context.Context, userID uuid.UUID, resetKeyHash string) error {
+	key := "reset:" + userID.String()
+	if err := r.cache.Set(key, resetKeyHash, 30*time.Minute).Err(); err != nil {
+		log.Error().Str("location", "AddResetKeyCache").Msgf("%v: failed to add reset key: %v", userID, err)
+		return err
+	}
+	
+	return nil
+}
+
 // Updates the user's twofa data.
 func (r *Cache) UpdateTwofa(ctx context.Context, userID uuid.UUID, body *email.Twofa) error {
 	data, err := body.Serialize()

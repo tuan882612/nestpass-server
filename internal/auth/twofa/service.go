@@ -2,6 +2,7 @@ package twofa
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"time"
 
@@ -321,6 +322,23 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 
 		log.Info().Msgf("%v: deleted session", userID)
 	}()
+
+	// add reset key to cache
+	go func() {
+		// new context with a timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		// encode the password
+		pswHashBase64 := base64.StdEncoding.EncodeToString([]byte(psw))
+		if err := s.cacheRepo.AddResetKey(ctx, userID, pswHashBase64); err != nil {
+			log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to add reset key: %v", userID, err)
+			return
+		}
+
+		log.Info().Msgf("%v: added reset key", userID)
+	}()
+
 
 	return nil
 }
