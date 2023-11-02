@@ -2,6 +2,7 @@ package twofa
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"time"
@@ -33,6 +34,16 @@ func NewService(deps *auth.Dependencies) *Service {
 		jwtManager:   deps.JWTManager,
 		emailManager: deps.EmailManager,
 	}
+}
+
+// Generate CSRF token
+func (s *Service) generateStateToken() (string, error) {
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // Sends a two-factor authentication code to the user's email.
@@ -338,7 +349,6 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 
 		log.Info().Msgf("%v: added reset key", userID)
 	}()
-
 
 	return nil
 }

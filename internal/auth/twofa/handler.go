@@ -14,11 +14,12 @@ import (
 // struct for handling two factor authentication requests
 type Handler struct {
 	twofaService *Service
+	prodEnv      bool
 }
 
 // NewHandler returns a new handler for two factor authentication requests
 func NewHandler(deps *auth.Dependencies) *Handler {
-	return &Handler{twofaService: NewService(deps)}
+	return &Handler{twofaService: NewService(deps), prodEnv: deps.ProdEnv}
 }
 
 // Handles the resend code request
@@ -69,13 +70,27 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 	if mode == "reset" {
 		resp.AddHeader(w, map[string]string{"X-Uid": data})
 	} else {
+		token, err := h.twofaService.generateStateToken()
+		if err != nil {
+			apiutils.HandleHttpErrors(w, err)
+			return
+		}
+		// Set JWT as HttpOnly cookie
 		http.SetCookie(w, &http.Cookie{
-			Name:     "session",
+			Name:     "Authorization",
 			Value:    data,
 			Expires:  time.Now().Add(12 * time.Hour),
 			Path:     "/",
 			HttpOnly: true,
-			Secure:   true,
+			Secure:   h.prodEnv,
+		})
+		http.SetCookie(w, &http.Cookie{
+			Name:     "token",
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   h.prodEnv,
+			SameSite: http.SameSiteLaxMode,
 		})
 	}
 	resp.SendRes(w)
