@@ -83,14 +83,15 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 			Path:     "/",
 			HttpOnly: true,
 			Secure:   h.prodEnv,
+			SameSite: http.SameSiteStrictMode,
 		})
 		http.SetCookie(w, &http.Cookie{
 			Name:     "token",
 			Value:    token,
 			Path:     "/",
-			HttpOnly: true,
+			HttpOnly: false,
 			Secure:   h.prodEnv,
-			SameSite: http.SameSiteLaxMode,
+			SameSite: http.SameSiteNoneMode,
 		})
 	}
 	resp.SendRes(w)
