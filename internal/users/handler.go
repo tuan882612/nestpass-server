@@ -14,7 +14,7 @@ type Handler struct {
 }
 
 func NewHandler(deps *dependencies.Dependencies) *Handler {
-	repo := NewRepository(deps.Databases.Postgres)
+	repo := NewRepository(deps.Databases.Postgres, deps.Databases.Redis)
 	svc := NewService(repo)
 	return &Handler{svc: svc}
 }
@@ -34,5 +34,46 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := apiutils.NewRes(http.StatusOK, "", user)
+	resp.SendRes(w)
+}
+
+func (h *Handler) VerifyCliKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, err := auth.UidFromCtx(ctx)
+	if err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	cliKey := r.Header.Get("X-CLI-Key")
+	if cliKey == "" {
+		apiutils.HandleHttpErrors(w, apiutils.NewErrBadRequest("missing clikey header"))
+		return
+	}
+
+	if err := h.svc.VerifyCliKey(ctx, userID, cliKey); err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	resp := apiutils.NewRes(http.StatusOK, "", nil)
+	resp.SendRes(w)
+}
+
+func (h *Handler) CreateCliKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, err := auth.UidFromCtx(ctx)
+	if err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	key, err := h.svc.CreateCliKey(ctx, userID)
+	if err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	resp := apiutils.NewRes(http.StatusCreated, "", key)
 	resp.SendRes(w)
 }
