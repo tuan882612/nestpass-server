@@ -89,7 +89,7 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 			Name:     "token",
 			Value:    token,
 			Path:     "/",
-			HttpOnly: false,
+			HttpOnly: false,	
 			Secure:   h.prodEnv,
 			SameSite: http.SameSiteNoneMode,
 		})
