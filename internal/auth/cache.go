@@ -17,6 +17,7 @@ type CacheType string
 
 const (
 	TwoFA      CacheType = "twofa"
+	Cli        CacheType = "cli"
 	Restricted CacheType = "restricted"
 	Session    CacheType = "session"
 )
@@ -70,6 +71,22 @@ func (r *Cache) GetData(ctx context.Context, userID uuid.UUID, mode CacheType) (
 		}
 
 		return tfaBody, nil
+	}
+
+	// gets cli key
+	if mode == Cli {
+		key := "clikey:" + userID.String()
+		data, err := r.cache.Get(key).Result()
+		if err != nil {
+			if err == redis.Nil {
+				return nil, apiutils.NewErrNotFound("cli key not found")
+			}
+
+			log.Error().Str("location", "GetData.Cli").Msgf("%v: failed to get cli key: %v", userID, err)
+			return nil, err
+		}
+
+		return data, nil
 	}
 
 	// set the key for either session or restricted
@@ -136,7 +153,7 @@ func (r *Cache) AddResetKey(ctx context.Context, userID uuid.UUID, resetKeyHash 
 		log.Error().Str("location", "AddResetKeyCache").Msgf("%v: failed to add reset key: %v", userID, err)
 		return err
 	}
-	
+
 	return nil
 }
 

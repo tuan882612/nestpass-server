@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"project/internal/auth"
+	"project/internal/auth/cli"
 	"project/internal/auth/oauth"
 	"project/internal/auth/twofa"
 	"project/internal/config"
@@ -51,6 +52,7 @@ func (s *Server) SetupRouter() error {
 	s.setupMiddleware()
 
 	// setting up handlers
+	cliHandler := cli.NewHandler(s.AuthDeps)
 	twofaHandler := twofa.NewHandler(s.AuthDeps)
 	oauthHandler := oauth.NewHandler(s.Cfg, s.AuthDeps)
 
@@ -58,8 +60,9 @@ func (s *Server) SetupRouter() error {
 	s.Router.NotFound(NotFoundHandler)
 	s.Router.Route(s.ApiVersion, func(r chi.Router) {
 		r.Get("/health", HealthHandler)
+		r.Route("/cli", routes.Cli(cliHandler, r))
 		r.Route("/twofa", routes.TwoFA(twofaHandler, r))
-		r.Route("/oauth", routes.OAuth(*oauthHandler, r))
+		r.Route("/oauth", routes.OAuth(oauthHandler, r))
 	})
 
 	return nil
