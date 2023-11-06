@@ -21,6 +21,10 @@ func (s *service) GetUser(ctx context.Context, userID uuid.UUID) (*User, error) 
 	return s.repo.GetUser(ctx, userID)
 }
 
+func (s *service) GetCliKey(ctx context.Context, userID uuid.UUID) (string, error) {
+	return s.repo.GetCliKey(ctx, userID)
+}
+
 func (s *service) CreateCliKey(ctx context.Context, userID uuid.UUID) (string, error) {
 	cliKeyBytes := make([]byte, 32)
 	if _, err := rand.Read(cliKeyBytes); err != nil {

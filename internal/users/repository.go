@@ -52,6 +52,21 @@ func (r *repository) VerifyCliKey(ctx context.Context, userID uuid.UUID) (string
 	return data, nil
 }
 
+func (r *repository) GetCliKey(ctx context.Context, userID uuid.UUID) (string, error) {
+	key := "clikey:" + userID.String()
+	data, err := r.cache.Get(key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return data, apiutils.NewErrNotFound("clikey not found")
+		}
+
+		log.Error().Str("location", "GetCliKey").Msgf("%v: %v", userID, err)
+		return data, err
+	}
+
+	return data, nil
+}
+
 func (r *repository) CreateCliKey(ctx context.Context, userID uuid.UUID, cliKey string) error {
 	key := "clikey:" + userID.String()
 	if err := r.cache.Set(key, cliKey, 12*time.Hour).Err(); err != nil {

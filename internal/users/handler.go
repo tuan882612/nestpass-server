@@ -37,6 +37,24 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	resp.SendRes(w)
 }
 
+func (h *Handler) GetCliKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, err := auth.UidFromCtx(ctx)
+	if err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	key, err := h.svc.GetCliKey(ctx, userID)
+	if err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	resp := apiutils.NewRes(http.StatusOK, "", key)
+	resp.SendRes(w)
+}
+
 func (h *Handler) CreateCliKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID, err := auth.UidFromCtx(ctx)
