@@ -37,29 +37,6 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	resp.SendRes(w)
 }
 
-func (h *Handler) VerifyCliKey(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	userID, err := auth.UidFromCtx(ctx)
-	if err != nil {
-		apiutils.HandleHttpErrors(w, err)
-		return
-	}
-
-	cliKey := r.Header.Get("X-CLI-Key")
-	if cliKey == "" {
-		apiutils.HandleHttpErrors(w, apiutils.NewErrBadRequest("missing clikey header"))
-		return
-	}
-
-	if err := h.svc.VerifyCliKey(ctx, userID, cliKey); err != nil {
-		apiutils.HandleHttpErrors(w, err)
-		return
-	}
-
-	resp := apiutils.NewRes(http.StatusOK, "", nil)
-	resp.SendRes(w)
-}
-
 func (h *Handler) CreateCliKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID, err := auth.UidFromCtx(ctx)

@@ -16,7 +16,6 @@ func Users(deps *dependencies.Dependencies, cfg *config.Configuration) func(r ch
 		
 		r.Use(middlewares.Authorization(cfg))
 		r.Get("/", userHandler.GetUser)
-		r.Get("/clikey", userHandler.VerifyCliKey)
 		r.Put("/clikey", userHandler.CreateCliKey)
 		r.Route("/categories", Categories(deps))
 	}
