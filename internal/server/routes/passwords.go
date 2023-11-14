@@ -2,22 +2,17 @@ package routes
 
 import (
 	"github.com/go-chi/chi/v5"
-
-	"nestpass/internal/dependencies"
-	"nestpass/internal/users/passwords"
 )
 
-func Passwords(deps *dependencies.Dependencies) func(r chi.Router) {
-	handler := passwords.NewHandler(deps)
-
+func Passwords(handler *APIHandler) func(r chi.Router) {
 	return func(r chi.Router) {
-		r.Get("/", handler.GetAllPasswords)
-		
+		r.Get("/", handler.Password.GetAllPasswords)
+
 		r.Route("/password", func(r chi.Router) {
-			r.Get("/", handler.GetPassword)
-			r.Post("/", handler.CreatePassword)
-			r.Patch("/", handler.UpdatePassword)
-			r.Delete("/", handler.DeletePassword)
+			r.Get("/", handler.Password.GetPassword)
+			r.Post("/", handler.Password.CreatePassword)
+			r.Patch("/", handler.Password.UpdatePassword)
+			r.Delete("/", handler.Password.DeletePassword)
 		})
 	}
 }

@@ -21,6 +21,8 @@ func NewHandler(deps *dependencies.Dependencies) *Handler {
 	return &Handler{svc: svc}
 }
 
+func (h *Handler) RehashAllPasswords(w http.ResponseWriter, r *http.Request) {}
+
 func (h *Handler) GetAllPasswords(w http.ResponseWriter, r *http.Request) {
 	pageParams := httputils.GetPaginationParams(r)
 

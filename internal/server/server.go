@@ -48,11 +48,17 @@ func (s *Server) SetupRouter() error {
 	log.Info().Msg("initializing " + s.ApiVersion + " api routes...")
 	s.setupMiddleware()
 
+	// initialize api handler
+	apiHandler := routes.NewAPIHandler(s.Deps)
+
+	// routing internal endpoints
+	s.Router.Patch("/rehash", apiHandler.Password.RehashAllPasswords)
+
 	// routing all api endpoints
 	s.Router.NotFound(NotFoundHandler)
 	s.Router.Route(s.ApiVersion, func(r chi.Router) {
 		r.Get("/health", HealthHandler)
-		r.Route("/user", routes.Users(s.Deps, s.Cfg))
+		r.Route("/user", routes.Users(apiHandler, s.Cfg))
 	})
 
 	return nil
