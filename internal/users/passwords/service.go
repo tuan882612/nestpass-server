@@ -18,7 +18,7 @@ func NewService(repo *repository) *service {
 }
 
 func (s *service) GetKDFKey(ctx context.Context, userID uuid.UUID) ([]byte, error) {
-	kdfData, err := s.repo.GetKDFKey(ctx, userID)
+	kdfData, err := s.repo.GetKDFData(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

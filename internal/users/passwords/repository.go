@@ -21,7 +21,7 @@ func NewRepository(pg *pgxpool.Pool) *repository {
 	return &repository{postgres: pg}
 }
 
-func (r *repository) GetKDFKey(ctx context.Context, userID uuid.UUID) (*KDFData, error) {
+func (r *repository) GetKDFData(ctx context.Context, userID uuid.UUID) (*KDFData, error) {
 	kdf := &KDFData{}
 
 	// retrieves nonce and salt
