@@ -19,7 +19,8 @@ func GetPaginationParams(r *http.Request) *Pagination {
 
 	limit := r.URL.Query().Get("limit")
 	if limit == "" {
-		limit = "5"
+		// set default limit to postgres max int
+		limit = "2147483647"
 	}
 
 	return &Pagination{

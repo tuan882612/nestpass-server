@@ -16,6 +16,13 @@ type ctxKey string
 
 const CtxKDFKey ctxKey = "kdf_key"
 
+type KDFType string
+
+const (
+	CurrKDF KDFType = "curr"
+	PrevKDF KDFType = "prev"
+)
+
 // Generates a key using PBKDF2 and returns the key
 func KeyDerivation(passwordHash, userID string, salt []byte) []byte {
 	combinedInput := passwordHash + ":" + userID

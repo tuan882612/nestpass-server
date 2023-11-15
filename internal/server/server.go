@@ -51,12 +51,14 @@ func (s *Server) SetupRouter() error {
 	// initialize api handler
 	apiHandler := routes.NewAPIHandler(s.Deps)
 
-	// routing internal endpoints
-	s.Router.Patch("/rehash", apiHandler.Password.RehashAllPasswords)
-
+	
 	// routing all api endpoints
 	s.Router.NotFound(NotFoundHandler)
 	s.Router.Route(s.ApiVersion, func(r chi.Router) {
+		// routing internal endpoints
+		r.Patch("/rehash", apiHandler.Password.RehashAllPasswords)
+
+		// routing user endpoints
 		r.Get("/health", HealthHandler)
 		r.Route("/user", routes.Users(apiHandler, s.Cfg))
 	})

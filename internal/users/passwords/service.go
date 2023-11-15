@@ -2,6 +2,7 @@ package passwords
 
 import (
 	"context"
+	"encoding/base64"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -17,13 +18,33 @@ func NewService(repo *repository) *service {
 	return &service{repo: repo}
 }
 
-func (s *service) GetKDFKey(ctx context.Context, userID uuid.UUID) ([]byte, error) {
+func (s *service) GetKDFKey(ctx context.Context, userID uuid.UUID, kdf KDFType) ([]byte, error) {
 	kdfData, err := s.repo.GetKDFData(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	return KeyDerivation(kdfData.PswHash, userID.String(), kdfData.Salt), nil
+	var key string
+
+	switch kdf {
+	case CurrKDF:
+		key = kdfData.PswHash
+	case PrevKDF:
+		data, err := s.repo.GetResetHash(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		key64, err := base64.StdEncoding.DecodeString(data)
+		if err != nil {
+			log.Error().Str("location", "GetKDFKey").Msgf("%v: %v", userID, err)
+			return nil, err
+		}
+
+		key = string(key64)
+	}
+
+	return KeyDerivation(key, userID.String(), kdfData.Salt), nil
 }
 
 func (s *service) DecryptAndGetPsw(password *PasswordEncrypt, userID uuid.UUID, key []byte) (*Password, error) {
@@ -48,13 +69,13 @@ func (s *service) DecryptAndGetPsw(password *PasswordEncrypt, userID uuid.UUID, 
 
 func (s *service) GetAllPasswords(ctx context.Context, userID uuid.UUID, pageParams *httputils.Pagination) ([]*Password, error) {
 	// retrieve kdf key
-	key, err := s.GetKDFKey(ctx, userID)
+	key, err := s.GetKDFKey(ctx, userID, CurrKDF)
 	if err != nil {
 		return nil, err
 	}
 
 	// retrieve encrypted passwords
-	passwords, err := s.repo.GetAllPasswords(ctx, userID, key, pageParams)
+	passwords, err := s.repo.GetAllPasswords(ctx, userID, pageParams)
 	if err != nil {
 		return nil, err
 	}
@@ -75,13 +96,13 @@ func (s *service) GetAllPasswords(ctx context.Context, userID uuid.UUID, pagePar
 
 func (s *service) GetAllPasswordsByCategory(ctx context.Context, userID, categoryID uuid.UUID, pageParams *httputils.Pagination) ([]*Password, error) {
 	// retrieve kdf key
-	key, err := s.GetKDFKey(ctx, userID)
+	key, err := s.GetKDFKey(ctx, userID, CurrKDF)
 	if err != nil {
 		return nil, err
 	}
 
 	// retrieve encrypted passwords
-	passwords, err := s.repo.GetAllPasswordsByCategory(ctx, userID, categoryID, key, pageParams)
+	passwords, err := s.repo.GetAllPasswordsByCategory(ctx, userID, categoryID, pageParams)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +123,7 @@ func (s *service) GetAllPasswordsByCategory(ctx context.Context, userID, categor
 
 func (s *service) GetPassword(ctx context.Context, passwordID, categoryID, userID uuid.UUID) (*Password, error) {
 	// retrieve kdf key
-	key, err := s.GetKDFKey(ctx, userID)
+	key, err := s.GetKDFKey(ctx, userID, CurrKDF)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +144,7 @@ func (s *service) GetPassword(ctx context.Context, passwordID, categoryID, userI
 }
 
 func (s *service) CreatePassword(ctx context.Context, psw *Password) error {
-	key, err := s.GetKDFKey(ctx, psw.UserID)
+	key, err := s.GetKDFKey(ctx, psw.UserID, CurrKDF)
 	if err != nil {
 		return err
 	}
@@ -152,7 +173,7 @@ func (s *service) CreatePassword(ctx context.Context, psw *Password) error {
 }
 
 func (s *service) UpdatePassword(ctx context.Context, psw *Password) error {
-	key, err := s.GetKDFKey(ctx, psw.UserID)
+	key, err := s.GetKDFKey(ctx, psw.UserID, CurrKDF)
 	if err != nil {
 		return err
 	}
@@ -181,6 +202,75 @@ func (s *service) UpdatePassword(ctx context.Context, psw *Password) error {
 }
 
 func (s *service) ReUpdateAllPasswords(ctx context.Context, userID uuid.UUID) error {
+    // Get both KDF keys
+    currKey, err := s.GetKDFKey(ctx, userID, CurrKDF)
+    if err != nil {
+        return err
+    }
+	log.Print(currKey)
+
+    prevKey, err := s.GetKDFKey(ctx, userID, PrevKDF)
+    if err != nil {
+        return err
+    }
+	log.Print(prevKey)
+
+	// empty pageParams
+	pageParams := &httputils.Pagination{
+		Index: "",
+		// max int value
+		Limit: "2147483647",
+	}
+
+	// retrieve encrypted passwords
+	passwords, err := s.repo.GetAllPasswords(ctx, userID, pageParams)
+	if err != nil {
+		return err
+	}
+
+	// create transaction
+	tx, err := s.repo.postgres.Begin(ctx)
+	if err != nil {
+		log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)
+		return err
+	}
+	
+	// process passwords
+	for _, password := range passwords {
+		// decrypt rawData from encrypted	
+		data, err := s.DecryptAndGetPsw(password, userID, prevKey)
+		if err != nil {
+			return err
+		}
+		
+		// re-encrypt password
+		newData, err := NewPasswordEncrypt(data, currKey)
+		if err != nil {
+			return err
+		}
+
+		// update password
+		if err := s.repo.UpdatePassword(ctx, tx, newData); err != nil {
+			return err
+		}
+	}
+
+	// commit transaction
+	if err := tx.Commit(ctx); err != nil {
+		log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)
+		return err
+	}
+
+	// delete reset hash
+	go func() {
+		if err := s.repo.DeleteResetHash(ctx, userID); err != nil {
+			log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)
+			return
+		}
+
+		log.Info().Str("location", "ReUpdateAllPasswords").Msgf("%v: reset hash deleted", userID)
+	}()
+
 	return nil
 }
 

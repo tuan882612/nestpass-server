@@ -16,12 +16,32 @@ type Handler struct {
 }
 
 func NewHandler(deps *dependencies.Dependencies) *Handler {
-	repo := NewRepository(deps.Databases.Postgres)
+	repo := NewRepository(deps.Databases.Postgres, deps.Databases.Redis)
 	svc := NewService(repo)
 	return &Handler{svc: svc}
 }
 
-func (h *Handler) RehashAllPasswords(w http.ResponseWriter, r *http.Request) {}
+func (h *Handler) RehashAllPasswords(w http.ResponseWriter, r *http.Request) {
+	uidStr := r.Header.Get("X-Uid")
+	if uidStr == "" {
+		apiutils.HandleHttpErrors(w, apiutils.NewErrBadRequest("missing X-Uid header"))
+		return
+	}
+
+	userID, err := uuid.Parse(uidStr)
+	if err != nil {
+		apiutils.HandleHttpErrors(w, apiutils.NewErrBadRequest("invalid X-Uid header"))
+		return
+	}
+
+	if err := h.svc.ReUpdateAllPasswords(r.Context(), userID); err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	resp := apiutils.NewRes(http.StatusOK, "passwords rehashed", nil)
+	resp.SendRes(w)
+}
 
 func (h *Handler) GetAllPasswords(w http.ResponseWriter, r *http.Request) {
 	pageParams := httputils.GetPaginationParams(r)
