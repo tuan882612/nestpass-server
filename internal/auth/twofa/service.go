@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -291,15 +292,15 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 	}
 
 	// check if password is duplicate
-	psw, err := s.authRepo.GetUserPassword(ctx, userID)
+	pswHash, err := s.authRepo.GetUserPassword(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	if err := securityutils.ValidatePassword(psw, password); err == nil {
+	if err := securityutils.ValidatePassword(pswHash, password); err == nil {
 		return apiutils.NewErrBadRequest("password is duplicate")
 	}
-
+	
 	// update the user's password in the background
 	go func() {
 		// new context with a timeout
@@ -335,20 +336,32 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 	}()
 
 	// add reset key to cache
-	go func() {
-		// new context with a timeout
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
+	pswHashBase64 := base64.StdEncoding.EncodeToString([]byte(pswHash))
+	if err := s.cacheRepo.AddResetKey(ctx, userID, pswHashBase64); err != nil {
+		log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to add reset key: %v", userID, err)
+		return err
+	}
 
-		// encode the password
-		pswHashBase64 := base64.StdEncoding.EncodeToString([]byte(psw))
-		if err := s.cacheRepo.AddResetKey(ctx, userID, pswHashBase64); err != nil {
-			log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to add reset key: %v", userID, err)
-			return
-		}
+	// rehash the user's passwords from resource server
+	req, err := http.NewRequest(http.MethodPatch, "http://localhost:2000/api/v1/rehash", nil)
+	if err != nil {
+		log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to create request: %v", userID, err)
+		return err
+	}
+	req.Header.Set("X-Uid", userID.String())
 
-		log.Info().Msgf("%v: added reset key", userID)
-	}()
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to send request: %v", userID, err)
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to rehash passwords", userID)
+		return errors.New("failed to rehash passwords")
+	}
 
 	return nil
 }
