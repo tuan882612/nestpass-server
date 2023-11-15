@@ -292,12 +292,12 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 	}
 
 	// check if password is duplicate
-	pswHash, err := s.authRepo.GetUserPassword(ctx, userID)
+	prevHash, err := s.authRepo.GetUserPassword(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	if err := securityutils.ValidatePassword(pswHash, password); err == nil {
+	if err := securityutils.ValidatePassword(prevHash, password); err == nil {
 		return apiutils.NewErrBadRequest("password is duplicate")
 	}
 	
@@ -308,13 +308,13 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 		defer cancel()
 
 		// hash the new password
-		hashedPassword, err := securityutils.HashPassword(password)
+		currHashed, err := securityutils.HashPassword(password)
 		if err != nil {
 			log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to hash password: %v", userID, err)
 			return
 		}
 
-		if err := s.authRepo.UpdateUserPassword(ctx, userID, hashedPassword); err != nil {
+		if err := s.authRepo.UpdateUserPassword(ctx, userID, currHashed); err != nil {
 			return
 		}
 
@@ -336,8 +336,8 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 	}()
 
 	// add reset key to cache
-	pswHashBase64 := base64.StdEncoding.EncodeToString([]byte(pswHash))
-	if err := s.cacheRepo.AddResetKey(ctx, userID, pswHashBase64); err != nil {
+	prevHash64 := base64.StdEncoding.EncodeToString([]byte(prevHash))
+	if err := s.cacheRepo.AddResetKey(ctx, userID, prevHash64); err != nil {
 		log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to add reset key: %v", userID, err)
 		return err
 	}
