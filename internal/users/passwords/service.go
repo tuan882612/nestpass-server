@@ -202,59 +202,66 @@ func (s *service) UpdatePassword(ctx context.Context, psw *Password) error {
 }
 
 func (s *service) ReUpdateAllPasswords(ctx context.Context, userID uuid.UUID) error {
-    // Get both KDF keys
-    currKey, err := s.GetKDFKey(ctx, userID, CurrKDF)
-    if err != nil {
-        return err
+    type keyResult struct {
+        Key []byte
+        Err error
     }
-	log.Print(currKey)
 
-    prevKey, err := s.GetKDFKey(ctx, userID, PrevKDF)
-    if err != nil {
-        return err
+    currKeyCh, prevKeyCh := make(chan keyResult, 1), make(chan keyResult, 1)
+
+    // Fetch currKey and prevKey concurrently
+    go func() {
+        key, err := s.GetKDFKey(ctx, userID, CurrKDF)
+        currKeyCh <- keyResult{Key: key, Err: err}
+    }()
+    go func() {
+        key, err := s.GetKDFKey(ctx, userID, PrevKDF)
+        prevKeyCh <- keyResult{Key: key, Err: err}
+    }()
+
+    currKeyRes := <-currKeyCh
+    if currKeyRes.Err != nil {
+		return currKeyRes.Err
     }
-	log.Print(prevKey)
 
-	// empty pageParams
-	pageParams := &httputils.Pagination{
-		Index: "",
-		// max int value
-		Limit: "2147483647",
-	}
+	prevKeyRes := <-prevKeyCh
+    if prevKeyRes.Err != nil {
+        return prevKeyRes.Err
+    }
 
 	// retrieve encrypted passwords
-	passwords, err := s.repo.GetAllPasswords(ctx, userID, pageParams)
+	passwords, err := s.repo.GetAllPasswordsNonPaged(ctx, userID)
 	if err != nil {
 		return err
 	}
-
+	
 	// create transaction
 	tx, err := s.repo.postgres.Begin(ctx)
 	if err != nil {
 		log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)
 		return err
 	}
-	
+
 	// process passwords
 	for _, password := range passwords {
 		// decrypt rawData from encrypted	
-		data, err := s.DecryptAndGetPsw(password, userID, prevKey)
+		data, err := s.DecryptAndGetPsw(password, userID, prevKeyRes.Key)
 		if err != nil {
 			return err
 		}
 		
 		// re-encrypt password
-		newData, err := NewPasswordEncrypt(data, currKey)
+		newData, err := NewPasswordEncrypt(data, currKeyRes.Key)
 		if err != nil {
 			return err
 		}
-
+	
 		// update password
 		if err := s.repo.UpdatePassword(ctx, tx, newData); err != nil {
 			return err
 		}
 	}
-
+	
 	// commit transaction
 	if err := tx.Commit(ctx); err != nil {
 		log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)

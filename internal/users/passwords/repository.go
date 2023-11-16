@@ -189,7 +189,7 @@ func (r *repository) DeletePassword(ctx context.Context, tx pgx.Tx, userID, pass
 
 func (r *repository) DeleteResetHash(ctx context.Context, userID uuid.UUID) error {
 	key := "reset:" + userID.String()
-	if err := r.cache.Del(key).Err(); err == nil {
+	if err := r.cache.Del(key).Err(); err != nil {
 		log.Error().Str("location", "DeleteResetHash").Msgf("%v: %v", userID, err)
 		return err
 	}
