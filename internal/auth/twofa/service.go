@@ -300,26 +300,6 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 	if err := securityutils.ValidatePassword(prevHashed, password); err == nil {
 		return apiutils.NewErrBadRequest("password is duplicate")
 	}
-	
-	// update the user's password in the background
-	go func() {
-		// new context with a timeout
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-
-		// hash the new password
-		currHashed, err := securityutils.HashPassword(password)
-		if err != nil {
-			log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to hash password: %v", userID, err)
-			return
-		}
-
-		if err := s.authRepo.UpdateUserPassword(ctx, userID, currHashed); err != nil {
-			return
-		}
-
-		log.Info().Msgf("%v: updated user password", userID)
-	}()
 
 	// delete the 30 minute session in the background
 	go func() {
@@ -335,10 +315,30 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 		log.Info().Msgf("%v: deleted session", userID)
 	}()
 
-	// add reset key to cache
-	prevHashed64 := base64.StdEncoding.EncodeToString([]byte(prevHashed))
-	if err := s.cacheRepo.AddResetKey(ctx, userID, prevHashed64); err != nil {
-		log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to add reset key: %v", userID, err)
+	// add reset key to cache in background
+	go func() {
+		// new context with a timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+	
+		prevHashed64 := base64.StdEncoding.EncodeToString([]byte(prevHashed))
+		if err := s.cacheRepo.AddResetKey(ctx, userID, prevHashed64); err != nil {
+			log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to add reset key: %v", userID, err)
+			return
+		}
+
+		log.Info().Msgf("%v: added reset key", userID)
+	}()
+	
+	// hash the new password
+	currHashed, err := securityutils.HashPassword(password)
+	if err != nil {
+		log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to hash password: %v", userID, err)
+		return err
+	}
+	
+	// update the user's password
+	if err := s.authRepo.UpdateUserPassword(ctx, userID, currHashed); err != nil {
 		return err
 	}
 
