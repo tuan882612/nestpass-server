@@ -80,19 +80,19 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
-	categoryResp := &CategoryResp{}
-	if err := categoryResp.Deserialize(r.Body); err != nil {
+	category := &Category{}
+	if err := category.Deserialize(r.Body); err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}
 
-	category, err := h.svc.UpdateCategory(r.Context(), categoryResp)
+	categoryResp, err := h.svc.UpdateCategory(r.Context(), category)
 	if err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}
 
-	resp := apiutils.NewRes(http.StatusOK, "", category)
+	resp := apiutils.NewRes(http.StatusOK, "", categoryResp)
 	resp.SendRes(w)
 }
 
@@ -103,13 +103,7 @@ func (h *Handler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	categoryIDStr := r.URL.Query().Get("category_id")
-	if categoryIDStr == "" {
-		apiutils.HandleHttpErrors(w, apiutils.NewErrBadRequest("category_id is required"))
-		return
-	}
-
-	categoryID, err := uuid.Parse(categoryIDStr)
+	categoryID, err := uuid.Parse(r.URL.Query().Get("category_id"))
 	if err != nil {
 		apiutils.HandleHttpErrors(w, apiutils.NewErrBadRequest("invalid category_id"))
 		return

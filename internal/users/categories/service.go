@@ -17,11 +17,11 @@ func NewService(repo *repository) *service {
 	return &service{repo: repo}
 }
 
-func (s *service) GetAllCategories(ctx context.Context, userID uuid.UUID, page *httputils.Pagination) ([]*CategoryResp, error) {
+func (s *service) GetAllCategories(ctx context.Context, userID uuid.UUID, page *httputils.Pagination) ([]*Category, error) {
 	return s.repo.GetAllCategories(ctx, userID, page)
 }
 
-func (s *service) GetCategory(ctx context.Context, userID uuid.UUID, key string) (*CategoryResp, error) {
+func (s *service) GetCategory(ctx context.Context, userID uuid.UUID, key string) (*Category, error) {
 	isUUID := true 
 	if _, err := uuid.Parse(key); err != nil {
 		isUUID = false
@@ -30,7 +30,7 @@ func (s *service) GetCategory(ctx context.Context, userID uuid.UUID, key string)
 	return s.repo.GetCategory(ctx, userID, key, isUUID)
 }
 
-func (s *service) CreateCategory(ctx context.Context, category *Category) (*CategoryResp, error) {
+func (s *service) CreateCategory(ctx context.Context, category *Category) (*Category, error) {
 	tx, err := s.repo.postgres.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func (s *service) CreateCategory(ctx context.Context, category *Category) (*Cate
 	return categoryResp, nil
 }
 
-func (s *service) UpdateCategory(ctx context.Context, category *CategoryResp) (*CategoryResp, error) {
+func (s *service) UpdateCategory(ctx context.Context, category *Category) (*Category, error) {
 	tx, err := s.repo.postgres.Begin(ctx)
 	if err != nil {
 		return nil, err

@@ -3,7 +3,6 @@ package categories
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -23,8 +22,8 @@ func NewRepository(pg *pgxpool.Pool) *repository {
 	return &repository{postgres: pg}
 }
 
-func (r *repository) GetAllCategories(ctx context.Context, userID uuid.UUID, params *httputils.Pagination) ([]*CategoryResp, error) {
-	categories := []*CategoryResp{}
+func (r *repository) GetAllCategories(ctx context.Context, userID uuid.UUID, params *httputils.Pagination) ([]*Category, error) {
+	categories := []*Category{}
 
 	rows, err := r.postgres.Query(ctx, GetAllCategoriesQuery, userID, params.Index, params.Limit)
 	if err != nil {
@@ -32,7 +31,7 @@ func (r *repository) GetAllCategories(ctx context.Context, userID uuid.UUID, par
 	}
 
 	for rows.Next() {
-		category := &CategoryResp{}
+		category := &Category{}
 		if err := category.Scan(rows); err != nil {
 			log.Error().Str("location", "GetAllCategories").Msgf("%v: %v", userID, err)
 			return nil, err
@@ -41,18 +40,17 @@ func (r *repository) GetAllCategories(ctx context.Context, userID uuid.UUID, par
 		categories = append(categories, category)
 	}
 
-	fmt.Println("getAllCategories ", categories, userID)
 	return categories, nil
 }
 
-func (r *repository) GetCategory(ctx context.Context, userID uuid.UUID, key string, isUUID bool) (*CategoryResp, error) {
-	category := &CategoryResp{}
+func (r *repository) GetCategory(ctx context.Context, userID uuid.UUID, key string, isUUID bool) (*Category, error) {
+	category := &Category{}
 
 	query := GetNameCategoryQuery
 	if isUUID {
 		query = GetUUIDCategoryQuery
 	}
-	
+
 	row := r.postgres.QueryRow(ctx, query, key, userID)
 	if err := category.Scan(row); err != nil {
 		if err == pgx.ErrNoRows {
@@ -66,7 +64,7 @@ func (r *repository) GetCategory(ctx context.Context, userID uuid.UUID, key stri
 	return category, nil
 }
 
-func (r *repository) CreateCategory(ctx context.Context, tx pgx.Tx, category *CategoryResp) error {
+func (r *repository) CreateCategory(ctx context.Context, tx pgx.Tx, category *Category) error {
 	_, err := tx.Exec(ctx, InsertCategoryQuery,
 		&category.CategoryID,
 		&category.UserID,
@@ -88,7 +86,7 @@ func (r *repository) CreateCategory(ctx context.Context, tx pgx.Tx, category *Ca
 	return nil
 }
 
-func (r *repository) UpdateCategory(ctx context.Context, tx pgx.Tx, category *CategoryResp) error {
+func (r *repository) UpdateCategory(ctx context.Context, tx pgx.Tx, category *Category) error {
 	_, err := tx.Exec(ctx, UpdateCategoryQuery,
 		&category.Name,
 		&category.Description,
