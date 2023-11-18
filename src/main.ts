@@ -16,8 +16,11 @@ async function bootstrap() {
         transport: Transport.GRPC,
         options: {
           url: process.env.HOST + ':' + process.env.PORT,
-          package: ['twofa'],
-          protoPath: join(__dirname, '../src/twofa/twofa.proto'),
+          package: ['twofa', 'ping'],
+          protoPath: [
+            join(__dirname, '../src/twofa/twofa.proto'),
+            join(__dirname, '../src/ping/ping.proto'),
+          ],
           channelOptions: {
             'grpc.keepalive_time_ms': 1800000, // 30 minutes in milliseconds
             'grpc.keepalive_timeout_ms': 5000, // Timeout after waiting 5 seconds for a response
