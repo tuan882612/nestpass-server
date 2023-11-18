@@ -118,8 +118,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 // Handles the initial register phase (sending the verification code)
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
-	input := &auth.Register{}
-	if err := input.Deserialize(r.Body); err != nil {
+	input, err := auth.NewRegister(r.Body)
+	if err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}

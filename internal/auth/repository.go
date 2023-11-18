@@ -63,7 +63,7 @@ func (r *Repository) GetUserPassword(ctx context.Context, userID uuid.UUID) (str
 }
 
 // Adds a new user to the database.
-func (r *Repository) AddUser(ctx context.Context, tx pgx.Tx, input *RegisterResp) error {
+func (r *Repository) AddUser(ctx context.Context, tx pgx.Tx, input *Register) error {
 	_, err := tx.Exec(ctx, AddUserQuery,
 		&input.UserID,
 		&input.Email,

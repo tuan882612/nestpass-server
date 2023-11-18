@@ -13,14 +13,12 @@ type OAuthData struct {
 	Name  string `json:"name"`
 }
 
-func (u *OAuthData) NewUser() *auth.RegisterResp {
-	return &auth.RegisterResp{
+func (u *OAuthData) NewUser() *auth.Register {
+	return &auth.Register{
 		UserID: uuid.New(),
-		Register: auth.Register{
-			Email:    u.Email,
-			Name:     u.Name,
-			Password: "",
-		},
+		Email:    u.Email,
+		Name:     u.Name,
+		Password: "",
 		Registered: time.Now(),
 		UserStatus: auth.ActiveUser,
 	}

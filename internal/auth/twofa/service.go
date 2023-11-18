@@ -230,38 +230,32 @@ func (s *Service) LoginSend(ctx context.Context, input *auth.Login) (string, err
 }
 
 // Initial twofa register
-func (s *Service) RegisterSend(ctx context.Context, input *auth.Register) (string, error) {
-	// convert Register to RegisterResp and validate the input
-	regResp, err := auth.NewRegisterResp(input)
-	if err != nil {
-		return "", err
-	}
-
+func (s *Service) RegisterSend(ctx context.Context, reg *auth.Register) (string, error) {
 	// start a transaction for registering the user
 	tx, err := s.authRepo.StartTx(ctx)
 	if err != nil {
-		log.Error().Str("location", "RegisterUser").Msgf("%v: failed to start transaction: %v", regResp.UserID, err)
+		log.Error().Str("location", "RegisterUser").Msgf("%v: failed to start transaction: %v", reg.UserID, err)
 		return "", err
 	}
 	defer tx.Rollback(ctx)
 
 	// add the user to the database
-	if err := s.authRepo.AddUser(ctx, tx, regResp); err != nil {
+	if err := s.authRepo.AddUser(ctx, tx, reg); err != nil {
 		return "", err
 	}
 
 	// commit the transaction
 	if err := tx.Commit(ctx); err != nil {
-		log.Error().Str("location", "RegisterUser").Msgf("%v: failed to commit transaction: %v", regResp.UserID, err)
+		log.Error().Str("location", "RegisterUser").Msgf("%v: failed to commit transaction: %v", reg.UserID, err)
 		return "", err
 	}
 
 	// send the two-factor auth code to the user's email in the background
-	if err := s.SendVerificationEmail(ctx, regResp.UserID, input.Email, regResp.UserStatus); err != nil {
+	if err := s.SendVerificationEmail(ctx, reg.UserID, reg.Email, reg.UserStatus); err != nil {
 		return "", err
 	}
 
-	return regResp.UserID.String(), nil
+	return reg.UserID.String(), nil
 }
 
 // Initial twofa reset password

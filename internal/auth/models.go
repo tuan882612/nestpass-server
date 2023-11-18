@@ -48,29 +48,6 @@ func (li *Login) Deserialize(data io.ReadCloser) error {
 	return nil
 }
 
-// Request data from the register endpoint.
-type Register struct {
-	Email    string `json:"email" validate:"required,email"`
-	Name     string `json:"name" validate:"required"`
-	Password string `json:"password" validate:"required,min=16,max=32"`
-}
-
-func (ri *Register) Deserialize(data io.ReadCloser) error {
-	// deserialize the data
-	if err := json.NewDecoder(data).Decode(&ri); err != nil {
-		log.Error().Str("location", "Register.Deserialize").Msgf("failed to deserialize data: %v", err)
-		return err
-	}
-
-	// validate the input
-	if err := validator.New().Struct(ri); err != nil {
-		log.Error().Str("location", "Register.Deserialize").Msgf("failed to validate input: %v", err)
-		return err
-	}
-
-	return nil
-}
-
 // Request data from the resend code endpoint.
 type Resend struct {
 	Email string `json:"email" validate:"required,email"`
@@ -113,27 +90,36 @@ func (rpi *ResetPsw) Deserialize(data io.ReadCloser) error {
 	return nil
 }
 
-// DTO for Register to RegisterResp.
-type RegisterResp struct {
-	UserID uuid.UUID `json:"user_id"`
-	Register
+// Request data from the register endpoint and the response data from the register endpoint.
+type Register struct {
+	UserID     uuid.UUID `json:"user_id"`
+	Email      string    `json:"email" validate:"required,email"`
+	Name       string    `json:"name" validate:"required"`
+	Password   string    `json:"password" validate:"required,min=16,max=32"`
 	Registered time.Time `json:"registered"`
 	UserStatus string    `json:"user_status"`
 	Salt       []byte    `json:"salt"`
 }
 
-// Creates a new RegisterResp from the given input and validates it.
-func NewRegisterResp(input *Register) (*RegisterResp, error) {
+// Creates a new Register from the given input and validates it.
+func NewRegister(data io.ReadCloser) (*Register, error) {
+	// deserialize the data
+	reg := &Register{}
+	if err := json.NewDecoder(data).Decode(&reg); err != nil {
+		log.Error().Str("location", "NewRegister").Msgf("failed to deserialize data: %v", err)
+		return nil, err
+	}
+
 	// validate the input
-	if err := validator.New().Struct(input); err != nil {
-		log.Error().Str("location", "NewRegisterResp").Msgf("failed to validate input: %v", err)
+	if err := validator.New().Struct(reg); err != nil {
+		log.Error().Str("location", "NewRegister").Msgf("failed to validate input: %v", err)
 		return nil, err
 	}
 
 	// hash the password
-	hashedPsw, err := securityutils.HashPassword(input.Password)
+	hashedPsw, err := securityutils.HashPassword(reg.Password)
 	if err != nil {
-		log.Error().Str("location", "NewRegisterResp").Msgf("failed to hash password: %v", err)
+		log.Error().Str("location", "NewRegister").Msgf("failed to hash password: %v", err)
 		return nil, err
 	}
 
@@ -143,14 +129,12 @@ func NewRegisterResp(input *Register) (*RegisterResp, error) {
 		return nil, err
 	}
 
-	// create the new RegisterResp and assign the hashed password
-	res := &RegisterResp{
-		UserID:     uuid.New(),
-		Register:   *input,
-		Registered: time.Now(),
-		UserStatus: "nonreg",
-		Salt:       salt,
-	}
-	res.Password = hashedPsw
-	return res, nil
+	// create the new Register data and assign the hashed password
+	reg.UserID = uuid.New()
+	reg.Password = hashedPsw
+	reg.Registered = time.Now()
+	reg.UserStatus = NonRegUser
+	reg.Salt = salt
+
+	return reg, nil
 }
