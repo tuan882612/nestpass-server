@@ -5,7 +5,7 @@ include .env
 BINARY_NAME := main
 DOCKER_PROJECT := nestpass-auth
 BUILD_FLAGS ?= -v
-GRPC_MODULE ?= twofa
+GRPC_MODULE ?= 
 
 OUTPUT_EXEC := ./bin/\$(BINARY_NAME)
 

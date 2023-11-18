@@ -5,6 +5,7 @@ import (
 	"project/internal/auth/jwt"
 	"project/internal/config"
 	"project/internal/database"
+	"project/internal/ping"
 )
 
 // Dependencies for the base authentication service.
@@ -13,6 +14,7 @@ type Dependencies struct {
 	Cache        *Cache      // twofa cache repository
 	JWTManager   *jwt.Manager
 	EmailManager *email.Manager
+	PingManager  *ping.PingManager
 	ProdEnv      bool
 }
 
@@ -32,6 +34,11 @@ func NewDependencies(cfg *config.Configuration) (*Dependencies, error) {
 		return nil, err
 	}
 
+	pingManager, err := ping.NewPingManager(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	jwtManager := jwt.NewManager(cfg)
 
 	return &Dependencies{
@@ -39,6 +46,7 @@ func NewDependencies(cfg *config.Configuration) (*Dependencies, error) {
 		Cache:        cache,
 		JWTManager:   jwtManager,
 		EmailManager: emailManager,
+		PingManager:  pingManager,
 		ProdEnv:      cfg.Server.ProdEnv,
 	}, nil
 }

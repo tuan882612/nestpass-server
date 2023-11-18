@@ -37,6 +37,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	// ping server
+	if err := svr.AuthDeps.PingManager.Ping(); err != nil {
+		os.Exit(1)
+	}
+
 	// start server
 	svr.Run()
 }
