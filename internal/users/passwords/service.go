@@ -2,11 +2,13 @@ package passwords
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"sync"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/crypto/pbkdf2"
 
 	"nestpass/pkg/httputils"
 )
@@ -19,7 +21,7 @@ func NewService(repo *repository) *service {
 	return &service{repo: repo}
 }
 
-func (s *service) GetKDFKey(ctx context.Context, userID uuid.UUID, kdf KDFType) ([]byte, error) {
+func (s *service) getKDFKey(ctx context.Context, userID uuid.UUID, kdf kdfType) ([]byte, error) {
 	kdfData, err := s.repo.GetKDFData(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -38,39 +40,21 @@ func (s *service) GetKDFKey(ctx context.Context, userID uuid.UUID, kdf KDFType) 
 
 		key64, err := base64.StdEncoding.DecodeString(data)
 		if err != nil {
-			log.Error().Str("location", "GetKDFKey").Msgf("%v: %v", userID, err)
+			log.Error().Str("location", "getKDFKey").Msgf("%v: %v", userID, err)
 			return nil, err
 		}
 
 		key = string(key64)
 	}
 
-	return KeyDerivation(key, userID.String(), kdfData.Salt), nil
-}
-
-func (s *service) DecryptAndGetPsw(password *PasswordEncrypt, userID uuid.UUID, key []byte) (*Password, error) {
-	// decrypt rawData from encrypted
-	data, err := Decrypt(password.Nonce, password.Encrypted, key)
-	if err != nil {
-		log.Error().Str("location", "GetAllPasswords").Msgf("%v: decrypt err %v", userID, err)
-		return nil, err
-	}
-
-	// create Password
-	return &Password{
-		PasswordID:  password.PasswordID,
-		UserID:      password.UserID,
-		CategoryID:  password.CategoryID,
-		Website:     password.Website,
-		Username:    data.Username,
-		Password:    data.Password,
-		Description: data.Description,
-	}, nil
+	combinedInput := key + ":" + userID.String()
+	kdfKey := pbkdf2.Key([]byte(combinedInput), kdfData.Salt, 4096, 32, sha256.New)
+	return kdfKey, nil
 }
 
 func (s *service) GetAllPasswords(ctx context.Context, userID uuid.UUID, pageParams *httputils.Pagination) ([]*Password, error) {
 	// retrieve kdf key
-	key, err := s.GetKDFKey(ctx, userID, CurrKDF)
+	key, err := s.getKDFKey(ctx, userID, CurrKDF)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +68,7 @@ func (s *service) GetAllPasswords(ctx context.Context, userID uuid.UUID, pagePar
 	// decrypt passwords
 	decryptedPsw := []*Password{}
 	for _, password := range passwords {
-		psw, err := s.DecryptAndGetPsw(password, userID, key)
+		psw, err := password.Decrypt(userID, key)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +81,7 @@ func (s *service) GetAllPasswords(ctx context.Context, userID uuid.UUID, pagePar
 
 func (s *service) GetAllPasswordsByCategory(ctx context.Context, userID, categoryID uuid.UUID, pageParams *httputils.Pagination) ([]*Password, error) {
 	// retrieve kdf key
-	key, err := s.GetKDFKey(ctx, userID, CurrKDF)
+	key, err := s.getKDFKey(ctx, userID, CurrKDF)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +95,7 @@ func (s *service) GetAllPasswordsByCategory(ctx context.Context, userID, categor
 	// decrypt passwords
 	decryptedPsw := []*Password{}
 	for _, password := range passwords {
-		psw, err := s.DecryptAndGetPsw(password, userID, key)
+		psw, err := password.Decrypt(userID, key)
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +108,7 @@ func (s *service) GetAllPasswordsByCategory(ctx context.Context, userID, categor
 
 func (s *service) GetPassword(ctx context.Context, passwordID, categoryID, userID uuid.UUID) (*Password, error) {
 	// retrieve kdf key
-	key, err := s.GetKDFKey(ctx, userID, CurrKDF)
+	key, err := s.getKDFKey(ctx, userID, CurrKDF)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +120,7 @@ func (s *service) GetPassword(ctx context.Context, passwordID, categoryID, userI
 	}
 
 	// decrypt password
-	psw, err := s.DecryptAndGetPsw(password, userID, key)
+	psw, err := password.Decrypt(userID, key)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +129,7 @@ func (s *service) GetPassword(ctx context.Context, passwordID, categoryID, userI
 }
 
 func (s *service) CreatePassword(ctx context.Context, psw *Password) error {
-	key, err := s.GetKDFKey(ctx, psw.UserID, CurrKDF)
+	key, err := s.getKDFKey(ctx, psw.UserID, CurrKDF)
 	if err != nil {
 		return err
 	}
@@ -174,7 +158,7 @@ func (s *service) CreatePassword(ctx context.Context, psw *Password) error {
 }
 
 func (s *service) UpdatePassword(ctx context.Context, psw *Password) error {
-	key, err := s.GetKDFKey(ctx, psw.UserID, CurrKDF)
+	key, err := s.getKDFKey(ctx, psw.UserID, CurrKDF)
 	if err != nil {
 		return err
 	}
@@ -203,21 +187,16 @@ func (s *service) UpdatePassword(ctx context.Context, psw *Password) error {
 }
 
 func (s *service) ReUpdateAllPasswords(ctx context.Context, userID uuid.UUID) error {
-	type keyResult struct {
-		Key []byte
-		Err error
-	}
-
-	currKeyCh, prevKeyCh := make(chan keyResult, 1), make(chan keyResult, 1)
+	currKeyCh, prevKeyCh := make(chan kdfKeyRes, 1), make(chan kdfKeyRes, 1)
 
 	// Fetch currKey and prevKey concurrently
 	go func() {
-		key, err := s.GetKDFKey(ctx, userID, CurrKDF)
-		currKeyCh <- keyResult{Key: key, Err: err}
+		key, err := s.getKDFKey(ctx, userID, CurrKDF)
+		currKeyCh <- kdfKeyRes{Key: key, Err: err}
 	}()
 	go func() {
-		key, err := s.GetKDFKey(ctx, userID, PrevKDF)
-		prevKeyCh <- keyResult{Key: key, Err: err}
+		key, err := s.getKDFKey(ctx, userID, PrevKDF)
+		prevKeyCh <- kdfKeyRes{Key: key, Err: err}
 	}()
 
 	currKeyRes := <-currKeyCh
@@ -242,7 +221,7 @@ func (s *service) ReUpdateAllPasswords(ctx context.Context, userID uuid.UUID) er
 	if n < chunkSize {
 		chunkSize = n
 	}
-	
+
 	log.Info().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v passwords to rehash now starting...", userID, n)
 	for i := 0; i < n; i += chunkSize {
 		end := i + chunkSize
@@ -263,7 +242,7 @@ func (s *service) ReUpdateAllPasswords(ctx context.Context, userID uuid.UUID) er
 			defer tx.Rollback(ctx)
 
 			for _, password := range chunk {
-				data, err := s.DecryptAndGetPsw(password, userID, prevKeyRes.Key)
+				data, err := password.Decrypt(userID, prevKeyRes.Key)
 				if err != nil {
 					log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)
 					return

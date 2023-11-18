@@ -1,6 +1,9 @@
 package passwords
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"encoding/json"
 	"io"
 
@@ -10,16 +13,45 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type KDFData struct {
+type kdfType string
+
+const (
+	CurrKDF kdfType = "curr"
+	PrevKDF kdfType = "prev"
+)
+
+// New 128 bit Galois Counter Mode wrapped block cipher
+func NewGCMBlock(key []byte) (cipher.AEAD, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		log.Error().Str("location", "encrypt").Msg(err.Error())
+		return nil, err
+	}
+
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		log.Error().Str("location", "encrypt").Msg(err.Error())
+		return nil, err
+	}
+
+	return aesgcm, nil
+}
+
+type kdfKeyRes struct {
+	Key []byte
+	Err error
+}
+
+type kdfData struct {
 	PswHash string `json:"password"`
 	Salt    []byte `json:"salt"`
 }
 
-func (k *KDFData) Scan(row pgx.Row) error {
+func (k *kdfData) Scan(row pgx.Row) error {
 	return row.Scan(&k.PswHash, &k.Salt)
 }
 
-type PswData struct {
+type pswData struct {
 	Username    string `json:"username"`
 	Password    string `json:"password"`
 	Description string `json:"description"`
@@ -45,9 +77,42 @@ func (p *PasswordEncrypt) Scan(row pgx.Row) error {
 	)
 }
 
+func (p *PasswordEncrypt) Decrypt(userID uuid.UUID, key []byte) (*Password, error) {
+	// create aesgcm block
+	aesgcm, err := NewGCMBlock(key)
+	if err != nil {
+		return nil, err
+	}
+
+	// decrypt data
+	decrypted, err := aesgcm.Open(nil, p.Nonce, p.Encrypted, nil)
+	if err != nil {
+		log.Error().Str("location", "decrypt").Msg(err.Error())
+		return nil, err
+	}
+
+	// deserialize decrypted data
+	data := &pswData{}
+	if err := json.Unmarshal(decrypted, data); err != nil {
+		log.Error().Str("location", "decrypt").Msg(err.Error())
+		return nil, err
+	}
+
+	// create Password
+	return &Password{
+		PasswordID:  p.PasswordID,
+		UserID:      p.UserID,
+		CategoryID:  p.CategoryID,
+		Website:     p.Website,
+		Username:    data.Username,
+		Password:    data.Password,
+		Description: data.Description,
+	}, nil
+}
+
 func NewPasswordEncrypt(psw *Password, dKey []byte) (*PasswordEncrypt, error) {
 	// pull out data from Password
-	data := &PswData{
+	data := &pswData{
 		Username:    psw.Username,
 		Password:    psw.Password,
 		Description: psw.Description,
@@ -61,20 +126,30 @@ func NewPasswordEncrypt(psw *Password, dKey []byte) (*PasswordEncrypt, error) {
 	}
 
 	// encrypt the data
-	nonce, encrypted, err := Encrypt(rawData, dKey)
+	aesgcm, err := NewGCMBlock(dKey)
 	if err != nil {
 		return nil, err
 	}
 
-	var passwordID uuid.UUID
-    if psw.PasswordID != uuid.Nil {
-        passwordID = psw.PasswordID
-    } else {
-        passwordID = uuid.New()
-    }
+	// create nonce
+	nonce := make([]byte, aesgcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		log.Error().Str("location", "encrypt").Msg(err.Error())
+		return nil, err
+	}
 
-    return &PasswordEncrypt{
-        PasswordID: passwordID,
+	// encrypt data
+	encrypted := aesgcm.Seal(nil, nonce, rawData, nil)
+
+	var passwordID uuid.UUID
+	if psw.PasswordID != uuid.Nil {
+		passwordID = psw.PasswordID
+	} else {
+		passwordID = uuid.New()
+	}
+
+	return &PasswordEncrypt{
+		PasswordID: passwordID,
 		UserID:     psw.UserID,
 		CategoryID: psw.CategoryID,
 		Website:    psw.Website,
@@ -107,7 +182,7 @@ func (p *Password) Deserialize(data io.ReadCloser) error {
 	return nil
 }
 
-func NewPassword(data *PswData, website string, userID, categoryID uuid.UUID) *Password {
+func NewPassword(data *pswData, website string, userID, categoryID uuid.UUID) *Password {
 	return &Password{
 		UserID:      userID,
 		CategoryID:  categoryID,

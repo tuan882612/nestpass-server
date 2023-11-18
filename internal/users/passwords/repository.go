@@ -16,15 +16,15 @@ import (
 
 type repository struct {
 	postgres *pgxpool.Pool
-	cache *redis.Client
+	cache    *redis.Client
 }
 
 func NewRepository(pg *pgxpool.Pool, cache *redis.Client) *repository {
 	return &repository{postgres: pg, cache: cache}
 }
 
-func (r *repository) GetKDFData(ctx context.Context, userID uuid.UUID) (*KDFData, error) {
-	kdf := &KDFData{}
+func (r *repository) GetKDFData(ctx context.Context, userID uuid.UUID) (*kdfData, error) {
+	kdf := &kdfData{}
 
 	// retrieves nonce and salt
 	row := r.postgres.QueryRow(ctx, GetKDFDataQuery, userID)
@@ -33,7 +33,7 @@ func (r *repository) GetKDFData(ctx context.Context, userID uuid.UUID) (*KDFData
 			return nil, errors.New("user id was not provided")
 		}
 
-		log.Error().Str("location", "GetKDFKey").Msgf("%v: %v", userID, err)
+		log.Error().Str("location", "getKDFKey").Msgf("%v: %v", userID, err)
 		return nil, err
 	}
 
@@ -79,7 +79,7 @@ func (r *repository) GetAllPasswords(ctx context.Context, userID uuid.UUID, page
 
 func (r *repository) GetAllPasswordsByCategory(
 	ctx context.Context,
-	userID, categoryID uuid.UUID, 
+	userID, categoryID uuid.UUID,
 	pageParms *httputils.Pagination) ([]*PasswordEncrypt, error) {
 
 	rows, err := r.postgres.Query(ctx, GetAllPasswordsByCategoryQuery, userID, categoryID, pageParms.Index, pageParms.Limit)
