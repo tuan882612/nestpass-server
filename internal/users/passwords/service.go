@@ -3,6 +3,7 @@ package passwords
 import (
 	"context"
 	"encoding/base64"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -202,71 +203,94 @@ func (s *service) UpdatePassword(ctx context.Context, psw *Password) error {
 }
 
 func (s *service) ReUpdateAllPasswords(ctx context.Context, userID uuid.UUID) error {
-    type keyResult struct {
-        Key []byte
-        Err error
-    }
+	type keyResult struct {
+		Key []byte
+		Err error
+	}
 
-    currKeyCh, prevKeyCh := make(chan keyResult, 1), make(chan keyResult, 1)
+	currKeyCh, prevKeyCh := make(chan keyResult, 1), make(chan keyResult, 1)
 
-    // Fetch currKey and prevKey concurrently
-    go func() {
-        key, err := s.GetKDFKey(ctx, userID, CurrKDF)
-        currKeyCh <- keyResult{Key: key, Err: err}
-    }()
-    go func() {
-        key, err := s.GetKDFKey(ctx, userID, PrevKDF)
-        prevKeyCh <- keyResult{Key: key, Err: err}
-    }()
+	// Fetch currKey and prevKey concurrently
+	go func() {
+		key, err := s.GetKDFKey(ctx, userID, CurrKDF)
+		currKeyCh <- keyResult{Key: key, Err: err}
+	}()
+	go func() {
+		key, err := s.GetKDFKey(ctx, userID, PrevKDF)
+		prevKeyCh <- keyResult{Key: key, Err: err}
+	}()
 
-    currKeyRes := <-currKeyCh
-    if currKeyRes.Err != nil {
+	currKeyRes := <-currKeyCh
+	if currKeyRes.Err != nil {
 		return currKeyRes.Err
-    }
+	}
 
 	prevKeyRes := <-prevKeyCh
-    if prevKeyRes.Err != nil {
-        return prevKeyRes.Err
-    }
+	if prevKeyRes.Err != nil {
+		return prevKeyRes.Err
+	}
 
 	// retrieve encrypted passwords
 	passwords, err := s.repo.GetAllPasswordsNonPaged(ctx, userID)
 	if err != nil {
 		return err
 	}
+
+	n := len(passwords)
+	wg := new(sync.WaitGroup)
+	chunkSize := 4
+	if n < chunkSize {
+		chunkSize = n
+	}
 	
-	// create transaction
-	tx, err := s.repo.postgres.Begin(ctx)
-	if err != nil {
-		log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)
-		return err
+	log.Info().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v passwords to rehash now starting...", userID, n)
+	for i := 0; i < n; i += chunkSize {
+		end := i + chunkSize
+		if end > n {
+			end = n
+		}
+		wg.Add(1)
+
+		go func(chunk []*PasswordEncrypt) {
+			defer wg.Done()
+
+			// create transaction
+			tx, err := s.repo.postgres.Begin(ctx)
+			if err != nil {
+				log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)
+				return
+			}
+			defer tx.Rollback(ctx)
+
+			for _, password := range chunk {
+				data, err := s.DecryptAndGetPsw(password, userID, prevKeyRes.Key)
+				if err != nil {
+					log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)
+					return
+				}
+
+				newData, err := NewPasswordEncrypt(data, currKeyRes.Key)
+				if err != nil {
+					log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)
+					return
+				}
+
+				if err := s.repo.UpdatePassword(ctx, tx, newData); err != nil {
+					log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)
+					return
+				}
+			}
+
+			// commit transaction
+			if err := tx.Commit(ctx); err != nil {
+				log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)
+				return
+			}
+		}(passwords[i:end])
 	}
 
-	// process passwords
-	for _, password := range passwords {
-		// decrypt rawData from encrypted	
-		data, err := s.DecryptAndGetPsw(password, userID, prevKeyRes.Key)
-		if err != nil {
-			return err
-		}
-		
-		// re-encrypt password
-		newData, err := NewPasswordEncrypt(data, currKeyRes.Key)
-		if err != nil {
-			return err
-		}
-	
-		// update password
-		if err := s.repo.UpdatePassword(ctx, tx, newData); err != nil {
-			return err
-		}
-	}
-	
-	// commit transaction
-	if err := tx.Commit(ctx); err != nil {
-		log.Error().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v", userID, err)
-		return err
-	}
+	wg.Wait()
+	log.Info().Str("location", "ReUpdateAllPasswords").Msgf("%v: %v passwords rehashed", userID, n)
 
 	// delete reset hash
 	go func() {
