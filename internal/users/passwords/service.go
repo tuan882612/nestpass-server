@@ -30,9 +30,9 @@ func (s *service) getKDFKey(ctx context.Context, userID uuid.UUID, kdf kdfType) 
 	var key string
 
 	switch kdf {
-	case CurrKDF:
+	case currKDF:
 		key = kdfData.PswHash
-	case PrevKDF:
+	case prevKDF:
 		data, err := s.repo.GetResetHash(ctx, userID)
 		if err != nil {
 			return nil, err
@@ -54,7 +54,7 @@ func (s *service) getKDFKey(ctx context.Context, userID uuid.UUID, kdf kdfType) 
 
 func (s *service) GetAllPasswords(ctx context.Context, userID uuid.UUID, pageParams *httputils.Pagination) ([]*Password, error) {
 	// retrieve kdf key
-	key, err := s.getKDFKey(ctx, userID, CurrKDF)
+	key, err := s.getKDFKey(ctx, userID, currKDF)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (s *service) GetAllPasswords(ctx context.Context, userID uuid.UUID, pagePar
 
 func (s *service) GetAllPasswordsByCategory(ctx context.Context, userID, categoryID uuid.UUID, pageParams *httputils.Pagination) ([]*Password, error) {
 	// retrieve kdf key
-	key, err := s.getKDFKey(ctx, userID, CurrKDF)
+	key, err := s.getKDFKey(ctx, userID, currKDF)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (s *service) GetAllPasswordsByCategory(ctx context.Context, userID, categor
 
 func (s *service) GetPassword(ctx context.Context, passwordID, categoryID, userID uuid.UUID) (*Password, error) {
 	// retrieve kdf key
-	key, err := s.getKDFKey(ctx, userID, CurrKDF)
+	key, err := s.getKDFKey(ctx, userID, currKDF)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (s *service) GetPassword(ctx context.Context, passwordID, categoryID, userI
 }
 
 func (s *service) CreatePassword(ctx context.Context, psw *Password) error {
-	key, err := s.getKDFKey(ctx, psw.UserID, CurrKDF)
+	key, err := s.getKDFKey(ctx, psw.UserID, currKDF)
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func (s *service) CreatePassword(ctx context.Context, psw *Password) error {
 }
 
 func (s *service) UpdatePassword(ctx context.Context, psw *Password) error {
-	key, err := s.getKDFKey(ctx, psw.UserID, CurrKDF)
+	key, err := s.getKDFKey(ctx, psw.UserID, currKDF)
 	if err != nil {
 		return err
 	}
@@ -191,11 +191,11 @@ func (s *service) ReUpdateAllPasswords(ctx context.Context, userID uuid.UUID) er
 
 	// Fetch currKey and prevKey concurrently
 	go func() {
-		key, err := s.getKDFKey(ctx, userID, CurrKDF)
+		key, err := s.getKDFKey(ctx, userID, currKDF)
 		currKeyCh <- kdfKeyRes{Key: key, Err: err}
 	}()
 	go func() {
-		key, err := s.getKDFKey(ctx, userID, PrevKDF)
+		key, err := s.getKDFKey(ctx, userID, prevKDF)
 		prevKeyCh <- kdfKeyRes{Key: key, Err: err}
 	}()
 

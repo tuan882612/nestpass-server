@@ -16,12 +16,12 @@ import (
 type kdfType string
 
 const (
-	CurrKDF kdfType = "curr"
-	PrevKDF kdfType = "prev"
+	currKDF kdfType = "curr"
+	prevKDF kdfType = "prev"
 )
 
 // New 128 bit Galois Counter Mode wrapped block cipher
-func NewGCMBlock(key []byte) (cipher.AEAD, error) {
+func newGCMBlock(key []byte) (cipher.AEAD, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		log.Error().Str("location", "encrypt").Msg(err.Error())
@@ -79,7 +79,7 @@ func (p *PasswordEncrypt) Scan(row pgx.Row) error {
 
 func (p *PasswordEncrypt) Decrypt(userID uuid.UUID, key []byte) (*Password, error) {
 	// create aesgcm block
-	aesgcm, err := NewGCMBlock(key)
+	aesgcm, err := newGCMBlock(key)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func NewPasswordEncrypt(psw *Password, dKey []byte) (*PasswordEncrypt, error) {
 	}
 
 	// encrypt the data
-	aesgcm, err := NewGCMBlock(dKey)
+	aesgcm, err := newGCMBlock(dKey)
 	if err != nil {
 		return nil, err
 	}
