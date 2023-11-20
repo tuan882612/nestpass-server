@@ -4,7 +4,7 @@ import "github.com/go-chi/cors"
 
 func CorsConfig() cors.Options {
 	return cors.Options{
-		AllowedOrigins:   []string{
+		AllowedOrigins: []string{
 			"http://localhost:5173",
 			"http://localhost:5000",
 			"http://localhost:3000",

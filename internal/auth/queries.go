@@ -10,7 +10,7 @@ const (
 		SELECT password
 		FROM users
 		WHERE user_id = $1`
-	AddUserQuery   string = `
+	AddUserQuery string = `
 		INSERT INTO users 
 			(user_id, email, name, password, registered, user_status, salt) 
 		VALUES ($1, $2, $3, $4, $5, $6, $7)`

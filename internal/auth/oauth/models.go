@@ -15,10 +15,10 @@ type OAuthData struct {
 
 func (u *OAuthData) NewUser() *auth.Register {
 	return &auth.Register{
-		UserID: uuid.New(),
-		Email:    u.Email,
-		Name:     u.Name,
-		Password: "",
+		UserID:     uuid.New(),
+		Email:      u.Email,
+		Name:       u.Name,
+		Password:   "",
 		Registered: time.Now(),
 		UserStatus: auth.ActiveUser,
 	}

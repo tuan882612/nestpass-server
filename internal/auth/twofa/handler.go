@@ -70,7 +70,7 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 	if mode == "reset" {
 		resp.AddHeader(w, map[string]string{"X-Uid": data})
 	} else {
-		token, err := h.twofaService.generateStateToken()
+		token, err := auth.GenerateStateToken()
 		if err != nil {
 			apiutils.HandleHttpErrors(w, err)
 			return
@@ -89,7 +89,7 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 			Name:     "token",
 			Value:    token,
 			Path:     "/",
-			HttpOnly: false,	
+			HttpOnly: false,
 			Secure:   h.prodEnv,
 			SameSite: http.SameSiteNoneMode,
 		})
