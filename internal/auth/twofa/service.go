@@ -2,7 +2,6 @@ package twofa
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"net/http"
@@ -35,16 +34,6 @@ func NewService(deps *auth.Dependencies) *Service {
 		jwtManager:   deps.JWTManager,
 		emailManager: deps.EmailManager,
 	}
-}
-
-// Generate CSRF token
-func (s *Service) generateStateToken() (string, error) {
-	b := make([]byte, 32)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // Sends a two-factor authentication code to the user's email.
@@ -314,7 +303,7 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 		// new context with a timeout
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-	
+
 		prevHashed64 := base64.StdEncoding.EncodeToString([]byte(prevHashed))
 		if err := s.cacheRepo.AddResetKey(ctx, userID, prevHashed64); err != nil {
 			log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to add reset key: %v", userID, err)
@@ -323,14 +312,14 @@ func (s *Service) ResetPasswordFinal(ctx context.Context, userID uuid.UUID, pass
 
 		log.Info().Msgf("%v: added reset key", userID)
 	}()
-	
+
 	// hash the new password
 	currHashed, err := securityutils.HashPassword(password)
 	if err != nil {
 		log.Error().Str("location", "ResetPasswordFinal").Msgf("%v: failed to hash password: %v", userID, err)
 		return err
 	}
-	
+
 	// update the user's password
 	if err := s.authRepo.UpdateUserPassword(ctx, userID, currHashed); err != nil {
 		return err

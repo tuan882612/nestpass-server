@@ -8,35 +8,44 @@ import (
 	"github.com/tuan882612/apiutils/securityutils"
 
 	"project/internal/auth"
+	"project/internal/auth/jwt"
 )
 
 // Service for handling cli authentication.
 type Service struct {
-	authRepo  *auth.Repository // base auth repository
-	cacheRepo *auth.Cache      // cache repository
+	authRepo   *auth.Repository // base auth repository
+	cacheRepo  *auth.Cache      // cache repository
+	jwtManager *jwt.Manager
 }
 
 // Creates a new cli authentication service with the given dependencies.
 func NewService(deps *auth.Dependencies) *Service {
 	return &Service{
-		authRepo:  deps.Repository,
-		cacheRepo: deps.Cache,
+		authRepo:   deps.Repository,
+		cacheRepo:  deps.Cache,
+		jwtManager: deps.JWTManager,
 	}
 }
 
 // Verifies the cli key
-func (s *Service) VerifyCliKey(ctx context.Context, userID uuid.UUID, inputCliKey string) error {
-	// retrieve the cli key from the cache
+func (s *Service) VerifyCliKey(ctx context.Context, userID uuid.UUID, inputCliKey string) (string, error) {
+	// retrieve the cli key from the cache and compare it with the input cli key
 	cliKey, err := s.cacheRepo.GetData(ctx, userID, auth.Cli)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if cliKey != inputCliKey {
-		return apiutils.NewErrUnauthorized("invalid clikey")
+		return "", apiutils.NewErrUnauthorized("invalid clikey")
 	}
 
-	return nil
+	// generate a new jwt token
+	token, err := s.jwtManager.GenerateToken(userID)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
 
 // Initial twofa login

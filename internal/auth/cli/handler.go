@@ -2,6 +2,7 @@ package cli
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/tuan882612/apiutils"
 
@@ -34,10 +35,36 @@ func (h *Handler) VerifyCliKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.cliService.VerifyCliKey(ctx, userID, cliKey); err != nil {
+	jwtToken, err := h.cliService.VerifyCliKey(ctx, userID, cliKey)
+	if err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}
+
+	csrfToken, err := auth.GenerateStateToken()
+	if err != nil {
+		apiutils.HandleHttpErrors(w, err)
+		return
+	}
+
+	// Set JWT as HttpOnly cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "Authorization",
+		Value:    jwtToken,
+		Expires:  time.Now().Add(12 * time.Hour),
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    csrfToken,
+		Path:     "/",
+		HttpOnly: false,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	})
 
 	resp := apiutils.NewRes(http.StatusOK, "", nil)
 	resp.SendRes(w)
