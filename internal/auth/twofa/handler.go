@@ -83,7 +83,7 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 			Path:     "/",
 			HttpOnly: true,
 			Secure:   h.prodEnv,
-			SameSite: http.SameSiteStrictMode,
+			SameSite: http.SameSiteNoneMode,
 		})
 		http.SetCookie(w, &http.Cookie{
 			Name:     "token",
