@@ -116,12 +116,14 @@ func (h *Handler) CreatePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.svc.CreatePassword(r.Context(), psw); err != nil {
+	pswID, err := h.svc.CreatePassword(r.Context(), psw)
+	if err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}
 
 	resp := apiutils.NewRes(http.StatusCreated, "", nil)
+	resp.AddHeader(w, map[string]string{"X-Pid": pswID.String()})
 	resp.SendRes(w)
 }
 

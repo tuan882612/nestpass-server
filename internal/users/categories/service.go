@@ -30,24 +30,24 @@ func (s *service) GetCategory(ctx context.Context, userID uuid.UUID, key string)
 	return s.repo.GetCategory(ctx, userID, key, isUUID)
 }
 
-func (s *service) CreateCategory(ctx context.Context, category *Category) (*Category, error) {
+func (s *service) CreateCategory(ctx context.Context, category *Category) (uuid.UUID, error) {
 	tx, err := s.repo.postgres.Begin(ctx)
 	if err != nil {
-		return nil, err
+		return uuid.Nil, err
 	}
 	defer tx.Rollback(ctx)
 
 	categoryResp := New(category.Name, category.Description, category.UserID)
 	if err := s.repo.CreateCategory(ctx, tx, categoryResp); err != nil {
-		return nil, err
+		return uuid.Nil, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		log.Error().Str("location", "CreateCategory").Msgf("%v: %v", category.UserID, err)
-		return nil, err
+		return uuid.Nil, err
 	}
 
-	return categoryResp, nil
+	return categoryResp.CategoryID, nil
 }
 
 func (s *service) UpdateCategory(ctx context.Context, category *Category) (*Category, error) {

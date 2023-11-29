@@ -69,13 +69,14 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	categoryResp, err := h.svc.CreateCategory(r.Context(), category)
+	categoryID, err := h.svc.CreateCategory(r.Context(), category)
 	if err != nil {
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}
 
-	resp := apiutils.NewRes(http.StatusOK, "", categoryResp)
+	resp := apiutils.NewRes(http.StatusCreated, "", nil)
+	resp.AddHeader(w, map[string]string{"X-Cid": categoryID.String()})
 	resp.SendRes(w)
 }
 

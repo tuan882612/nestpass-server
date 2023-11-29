@@ -128,33 +128,33 @@ func (s *service) GetPassword(ctx context.Context, passwordID, categoryID, userI
 	return psw, nil
 }
 
-func (s *service) CreatePassword(ctx context.Context, psw *Password) error {
+func (s *service) CreatePassword(ctx context.Context, psw *Password) (uuid.UUID, error) {
 	key, err := s.getKDFKey(ctx, psw.UserID, currKDF)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
 	data, err := NewPasswordEncrypt(psw, key)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
 	tx, err := s.repo.postgres.Begin(ctx)
 	if err != nil {
 		log.Error().Str("location", "CreatePassword").Msgf("%v: %v", psw.UserID, err)
-		return err
+		return uuid.Nil, err
 	}
 
 	if err := s.repo.CreatePassword(ctx, tx, data); err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		log.Error().Str("location", "CreatePassword").Msgf("%v: %v", psw.UserID, err)
-		return err
+		return uuid.Nil, err
 	}
 
-	return nil
+	return data.PasswordID, nil
 }
 
 func (s *service) UpdatePassword(ctx context.Context, psw *Password) error {
