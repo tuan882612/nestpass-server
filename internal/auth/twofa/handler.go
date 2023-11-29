@@ -83,7 +83,7 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 			Value:    data,
 			Expires:  time.Now().Add(12 * time.Hour),
 			Path:     "/",
-			HttpOnly: true,
+			HttpOnly: false,
 			Secure:   h.prodEnv,
 			SameSite: http.SameSiteNoneMode,
 		})
