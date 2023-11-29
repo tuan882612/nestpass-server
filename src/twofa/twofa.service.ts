@@ -3,7 +3,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { RedisClientType, createClient } from 'redis';
 import { EmailService } from 'src/email/email.service';
-import Email, { EmailType } from 'src/interfaces/email.interface';
+// import Email, { EmailType } from 'src/interfaces/email.interface';
 import { CachePayload, Payload } from 'src/interfaces/payload.interface';
 
 /**
@@ -36,16 +36,17 @@ export class TwofaService implements OnModuleInit {
    */
   public async sendVerifactionEmail(payload: Payload): Promise<void> {
     const authCode: string = this.generateVerifactionCode();
-    const email: Email = {
-      to: payload.email,
-      subject: 'nestpass - Auth Code: ' + authCode,
-      template: this.emailService.getTemplate(EmailType.TWOFA),
-    };
+    // const email: Email = {
+    //   to: payload.email,
+    //   subject: 'nestpass - Auth Code: ' + authCode,
+    //   template: this.emailService.getTemplate(EmailType.TWOFA),
+    // };
 
     // send email and cache the verification code asynchronously
     const cachePromise = this.cacheVerifactionCode(payload, authCode);
-    const emailPromise = this.emailService.sendEmail(email);
-    await Promise.all([cachePromise, emailPromise]);
+    // const emailPromise = this.emailService.sendEmail(email);
+    // await Promise.all([cachePromise, emailPromise]);
+    await Promise.all([cachePromise]);
   }
 
   /**
