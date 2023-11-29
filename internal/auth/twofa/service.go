@@ -89,17 +89,17 @@ func (s *Service) ResendCode(ctx context.Context, email string) error {
 	return nil
 }
 
-// Verifies the two-factor auth code and returns a JWT token if the verification is successful.
-func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, mode string) (string, error) {
+// Verifies the two-factor auth code and returns a JWT token if the verification is successful along with always a retry count.
+func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, mode string) (string, int, error) {
 	data, err := s.cacheRepo.GetData(ctx, userID, auth.TwoFA)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	// check if the data type is correct
 	tfaBody, ok := data.(*email.Twofa)
 	if !ok {
-		return "", errors.New("invalid twofa data")
+		return "", 0, errors.New("invalid twofa data")
 	}
 
 	var retriesErr error = nil
@@ -118,7 +118,7 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 				log.Info().Msgf("%v: updated twofa retries", userID)
 			}()
 
-			return "", apiutils.NewErrUnauthorized("invalid code")
+			return "", tfaBody.Retries, apiutils.NewErrUnauthorized("invalid code")
 		}
 
 		// add the user as restricted async
@@ -146,7 +146,7 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 
 	// check if there was a retries error
 	if retriesErr != nil {
-		return "", retriesErr
+		return "", tfaBody.Retries, retriesErr
 	}
 
 	// update the user's status in the background if the user is a non-registered user
@@ -174,17 +174,17 @@ func (s *Service) VerifyAuthToken(ctx context.Context, userID uuid.UUID, token, 
 			log.Info().Msgf("%v: added 30 session", userID)
 		}()
 
-		return userID.String(), nil
+		return userID.String(), 0, nil
 	}
 
 	// generate a JWT token
 	authToken, err := s.jwtManager.GenerateToken(userID)
 	if err != nil {
 		log.Error().Str("location", "VerifyAuthToken").Msgf("%v: failed to generate JWT token: %v", userID, err)
-		return "", err
+		return "", 0, err
 	}
 
-	return authToken, nil
+	return authToken, 0, nil
 }
 
 // Initial twofa login

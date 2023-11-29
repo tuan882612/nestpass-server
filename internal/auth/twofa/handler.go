@@ -2,6 +2,7 @@ package twofa
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/tuan882612/apiutils"
@@ -60,8 +61,9 @@ func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := h.twofaService.VerifyAuthToken(r.Context(), userID, Token.Token, mode)
+	data, retryN, err := h.twofaService.VerifyAuthToken(r.Context(), userID, Token.Token, mode)
 	if err != nil {
+		w.Header().Set("X-Retry-N", strconv.Itoa(retryN))
 		apiutils.HandleHttpErrors(w, err)
 		return
 	}
