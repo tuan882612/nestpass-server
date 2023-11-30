@@ -178,7 +178,7 @@ func (r *repository) UpdatePassword(ctx context.Context, tx pgx.Tx, data *Passwo
 }
 
 func (r *repository) DeletePassword(ctx context.Context, tx pgx.Tx, userID, passwordID, categoryID uuid.UUID) error {
-	_, err := tx.Exec(ctx, DeletePasswordQuery, passwordID, userID, categoryID)
+	_, err := tx.Exec(ctx, DeletePasswordQuery, passwordID, categoryID, userID)
 	if err != nil {
 		log.Error().Str("location", "DeletePassword").Msgf("%v: %v", userID, err)
 		return err

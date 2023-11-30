@@ -17,3 +17,4 @@ func Categories(handler *APIHandler) func(r chi.Router) {
 		r.Route("/passwords", Passwords(handler))
 	}
 }
+	

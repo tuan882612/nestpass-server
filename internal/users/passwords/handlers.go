@@ -144,11 +144,7 @@ func (h *Handler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeletePassword(w http.ResponseWriter, r *http.Request) {
-	pswID, cateryID := r.URL.Query().Get("password_id"), r.URL.Query().Get("category_id")
-	if pswID == "" || cateryID == "" {
-		apiutils.HandleHttpErrors(w, apiutils.NewErrBadRequest("missing password_id or category_id"))
-		return
-	}
+	pswID, catID := r.Header.Get("X-Pid"), r.Header.Get("X-Cid")
 
 	passwordID, err := uuid.Parse(pswID)
 	if err != nil {
@@ -156,7 +152,7 @@ func (h *Handler) DeletePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	categoryID, err := uuid.Parse(cateryID)
+	categoryID, err := uuid.Parse(catID)
 	if err != nil {
 		apiutils.HandleHttpErrors(w, apiutils.NewErrBadRequest("invalid category_id"))
 		return

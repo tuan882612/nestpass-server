@@ -51,7 +51,6 @@ func (s *Server) SetupRouter() error {
 	// initialize api handler
 	apiHandler := routes.NewAPIHandler(s.Deps)
 
-	
 	// routing all api endpoints
 	s.Router.NotFound(NotFoundHandler)
 	s.Router.Route(s.ApiVersion, func(r chi.Router) {
@@ -69,7 +68,7 @@ func (s *Server) SetupRouter() error {
 // helper: setupMiddleware setups all middlewares.
 func (s *Server) setupMiddleware() {
 	s.Router.Use(middleware.Logger)
-
+	
 }
 
 // Starts the HTTP server.
